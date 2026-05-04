@@ -2,6 +2,13 @@
 
 This repository is Mase's personal fork of upstream GSD.
 
+## Start Here
+
+For the one-way upstream update procedure, read
+`docs/mase-fork-operating-model.md#upstream-intake` before fetching, merging,
+rebasing, or pushing. The short rule is: pull improvements from `upstream`, push
+only to `origin`.
+
 ## Remotes
 
 - `origin`: `https://github.com/matzls/get-shit-done.git`
