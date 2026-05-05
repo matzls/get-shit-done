@@ -5,7 +5,7 @@ status: active
 audience: "agents-maintainers"
 canonicality: canonical
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-05
 ---
 
 # Mase GSD Fork Operating Model
@@ -61,6 +61,33 @@ If the rebase conflicts, resolve each overlap deliberately:
 - `adapt`: upstream fixed the general case, but Mase's Codex setup still needs
   a local overlay
 - `defer`: keep the old behavior for now and record the follow-up
+
+## Fork Install And Update
+
+Do not use `/gsd-update` or `npx get-shit-done-cc@latest` to maintain a
+fork-based install. The upstream update workflow checks npm package
+`get-shit-done-cc` and reinstalls the public upstream package, so it can replace
+Mase-specific fork changes.
+
+For Mase-managed installs, update this repository first, then install from the
+checked-out fork branch:
+
+```bash
+git checkout mase/local-fixes
+git rebase main
+scripts/mase-install-fork.sh --runtime codex --local --target /path/to/project
+```
+
+Use `--global` instead of `--local --target ...` for a global runtime install:
+
+```bash
+scripts/mase-install-fork.sh --runtime codex --global
+```
+
+The wrapper builds generated hook assets from this repository, refuses to
+install from `main` by default, and runs the installer from the target project
+directory for local installs. Set `GSD_ALLOW_MAIN_INSTALL=1` only when you
+intentionally want the clean upstream mirror.
 
 ## Local Patch Scope
 
