@@ -219,8 +219,10 @@ fi
 runtime_config_dir="$(install_config_dir)"
 commit_sha="$(git -C "$repo_root" rev-parse HEAD)"
 mode="full"
-if has_arg "--minimal" "${extra_args[@]}" || has_arg "--core-only" "${extra_args[@]}"; then
-  mode="minimal"
+if [ "${#extra_args[@]}" -gt 0 ]; then
+  if has_arg "--minimal" "${extra_args[@]}" || has_arg "--core-only" "${extra_args[@]}"; then
+    mode="minimal"
+  fi
 fi
 target_path="$runtime_config_dir"
 if [ "$scope" = "local" ]; then
