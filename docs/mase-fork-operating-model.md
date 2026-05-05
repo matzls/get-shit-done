@@ -89,6 +89,46 @@ install from `main` by default, and runs the installer from the target project
 directory for local installs. Set `GSD_ALLOW_MAIN_INSTALL=1` only when you
 intentionally want the clean upstream mirror.
 
+Fork installs write a source marker outside GSD's wiped managed tree:
+
+```text
+<runtime-config-dir>/mase-fork-install.json
+```
+
+For local Codex installs this is normally:
+
+```text
+<target-repo>/.codex/mase-fork-install.json
+```
+
+The marker records the fork path, branch, exact commit, runtime, scope, target,
+install mode, and install timestamp. It is intentionally a sibling of
+`get-shit-done/`, not inside it, so inventory can still detect a fork-managed
+install if an upstream update accidentally overwrites the managed payload.
+
+The fork branch also adds a small `/gsd-update` preflight in
+`commands/gsd/update.md`. If the marker says `source: "mase-fork"`, the
+standard npm-backed update path stops unless `GSD_ALLOW_UPSTREAM_UPDATE=1` is
+set explicitly.
+
+To audit installs:
+
+```bash
+scripts/mase-gsd-install-inventory.sh
+scripts/mase-gsd-install-inventory.sh --json
+```
+
+To propagate the current fork to stale local installs, dry-run first:
+
+```bash
+scripts/mase-gsd-propagate.sh --dry-run
+scripts/mase-gsd-propagate.sh --apply
+```
+
+Propagation skips global installs, dirty target repos, and unknown-source GSD
+installs by default. Use explicit flags such as `--include-global` only after
+reviewing the dry-run output.
+
 ## Local Patch Scope
 
 Local fixes should stay small, reviewable, and focused on Mase's runtime needs.
