@@ -996,13 +996,13 @@ Analyze existing codebase with parallel mapper agents. Use `--fast` for a quick 
 
 ### `/gsd-graphify`
 
-Build, query, and inspect the project knowledge graph stored in `.planning/graphs/`. Opt-in via `graphify.enabled: true` in `config.json` (see [Configuration Reference](CONFIGURATION.md#graphify-settings)); when disabled, the command prints an activation hint and stops.
+Build, query, and inspect the project knowledge graph stored in `.planning/graphs/`. Build, query, and diff are opt-in via `graphify.enabled: true` in `config.json` (see [Configuration Reference](CONFIGURATION.md#graphify-settings)); when disabled, those mutating or graph-consuming modes print an activation hint and stop. `status` is read-only and may run while disabled to report Graphify context availability.
 
 | Subcommand | Description |
 |------------|-------------|
 | `build` | Build or rebuild the knowledge graph (runs `graphify update .` inline and refreshes `.planning/graphs/`) |
 | `query <term>` | Search the graph for a term |
-| `status` | Show graph freshness and statistics |
+| `status` | Show graph freshness and statistics, or Graphify context availability when disabled |
 | `diff` | Show changes since the last build |
 
 **Produces:** `.planning/graphs/` graph artifacts (nodes, edges, snapshots)
@@ -1015,6 +1015,12 @@ Build, query, and inspect the project knowledge graph stored in `.planning/graph
 ```
 
 **Programmatic access:** `node gsd-tools.cjs graphify <build|query|status|diff|snapshot>` — see [CLI Tools Reference](CLI-TOOLS.md).
+
+Programmatic read-only advisory checks:
+`node gsd-tools.cjs graphify status` and
+`node gsd-tools.cjs graphify context-status`. When disabled, `status` returns
+the advisory context with `status_bypass: true`; `context-status` always returns
+only the advisory context.
 
 ---
 

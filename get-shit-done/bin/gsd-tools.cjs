@@ -1052,7 +1052,9 @@ async function runCommand(command, args, cwd, raw, defaultValue, originalCommand
         const budget = budgetIdx !== -1 ? parseInt(args[budgetIdx + 1], 10) : null;
         core.output(graphify.graphifyQuery(cwd, term, { budget }), raw);
       } else if (subcommand === 'status') {
-        core.output(graphify.graphifyStatus(cwd), raw);
+        core.output(graphify.graphifyStatus(cwd, { disabledContext: true }), raw);
+      } else if (subcommand === 'context-status') {
+        core.output(graphify.graphifyContextStatus(cwd), raw);
       } else if (subcommand === 'diff') {
         core.output(graphify.graphifyDiff(cwd), raw);
       } else if (subcommand === 'build') {
@@ -1062,7 +1064,7 @@ async function runCommand(command, args, cwd, raw, defaultValue, originalCommand
           core.output(graphify.graphifyBuild(cwd), raw);
         }
       } else {
-        error('Unknown graphify subcommand. Available: build, query, status, diff', ERROR_REASON.SDK_UNKNOWN_COMMAND);
+        error('Unknown graphify subcommand. Available: build, query, status, diff, context-status', ERROR_REASON.SDK_UNKNOWN_COMMAND);
       }
       break;
     }

@@ -11,6 +11,8 @@ allowed-tools:
 
 **CJS-only (graphify):** `graphify` subcommands are not registered on `gsd-sdk query`. Use `node $HOME/.claude/get-shit-done/bin/gsd-tools.cjs graphify …` as documented in this command and in `docs/CLI-TOOLS.md`. Other tooling may still use `gsd-sdk query` where a handler exists.
 
+**Read-only advisory checks:** `/gsd:graphify status` and `node $HOME/.claude/get-shit-done/bin/gsd-tools.cjs graphify context-status` are intentionally available without `graphify.enabled`. They report whether Graphify context exists or may be worth suggesting; they do not build, query, diff, or change graph artifacts. Build, query, and diff remain config-gated.
+
 ## Step 0 -- Banner
 
 **Before ANY tool calls**, display this banner:
@@ -21,33 +23,7 @@ GSD > GRAPHIFY
 
 Then proceed to Step 1.
 
-## Step 1 -- Config Gate
-
-Check if graphify is enabled by reading `.planning/config.json` directly using the Read tool.
-
-**DO NOT use the gsd-tools config get-value command** -- it hard-exits on missing keys.
-
-1. Read `.planning/config.json` using the Read tool
-2. If the file does not exist: display the disabled message below and **STOP**
-3. Parse the JSON content. Check if `config.graphify && config.graphify.enabled === true`
-4. If `graphify.enabled` is NOT explicitly `true`: display the disabled message below and **STOP**
-5. If `graphify.enabled` is `true`: proceed to Step 2
-
-**Disabled message:**
-
-```
-GSD > GRAPHIFY
-
-Knowledge graph is disabled. To activate:
-
-  node $HOME/.claude/get-shit-done/bin/gsd-tools.cjs config-set graphify.enabled true
-
-Then run /gsd:graphify build to create the initial graph.
-```
-
----
-
-## Step 2 -- Parse Argument
+## Step 1 -- Parse Argument
 
 Parse `$ARGUMENTS` to determine the operation mode:
 
@@ -69,9 +45,37 @@ Usage: /gsd:graphify <mode>
 Modes:
   build           Build or rebuild the knowledge graph
   query <term>    Search the graph for a term
-  status          Show graph freshness and statistics
+  status          Show graph freshness, statistics, or Graphify context availability
   diff            Show changes since last build
 ```
+
+If the mode is `status`, skip Step 2 and proceed directly to Step 2b.
+
+## Step 2 -- Config Gate
+
+Check if graphify is enabled by reading `.planning/config.json` directly using the Read tool.
+
+**DO NOT use the gsd-tools config get-value command** -- it hard-exits on missing keys.
+
+1. Read `.planning/config.json` using the Read tool
+2. If the file does not exist: display the disabled message below and **STOP**
+3. Parse the JSON content. Check if `config.graphify && config.graphify.enabled === true`
+4. If `graphify.enabled` is NOT explicitly `true`: display the disabled message below and **STOP**
+5. If `graphify.enabled` is `true`: proceed to the selected operation step
+
+**Disabled message:**
+
+```
+GSD > GRAPHIFY
+
+Knowledge graph is disabled. To activate:
+
+  node $HOME/.claude/get-shit-done/bin/gsd-tools.cjs config-set graphify.enabled true
+
+Then run /gsd:graphify build to create the initial graph.
+```
+
+---
 
 ### Step 2a -- Query
 
@@ -98,6 +102,7 @@ node $HOME/.claude/get-shit-done/bin/gsd-tools.cjs graphify status
 ```
 
 Parse the JSON output and display:
+- If `mode: context-status`, display the read-only context state, whether Graphify CLI is available, whether `.graphifyignore` exists, the `.planning/graphs/` and `graphify-out/` availability, and the message field. If `state` is `recommended` or `unsafe_missing_ignore`, suggest preparing `.graphifyignore` before running `/gsd:graphify build`.
 - If `exists: false`, display the message field
 - Otherwise show last build time, node/edge/hyperedge counts, and STALE or FRESH indicator
 - If `built_at_commit` is non-null, also display a `Source commit:` line:

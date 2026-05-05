@@ -201,6 +201,190 @@ function safeReadJson(filePath) {
   }
 }
 
+// ─── Context Status Helper ──────────────────────────────────────────────────
+
+const GRAPHIFY_CONTEXT_STATES = Object.freeze({
+  AVAILABLE: 'available',
+  AVAILABLE_STANDARD_ONLY: 'available_standard_only',
+  STALE: 'stale',
+  RECOMMENDED: 'recommended',
+  NOT_NEEDED: 'not_needed',
+  UNAVAILABLE: 'unavailable',
+  UNSAFE_MISSING_IGNORE: 'unsafe_missing_ignore',
+});
+
+const GRAPHIFY_STALE_MS = 24 * 60 * 60 * 1000;
+const GRAPHIFY_RECOMMENDED_FILE_THRESHOLD = 200;
+
+function graphRootStatus(rootDir) {
+  const graphPath = path.join(rootDir, 'graph.json');
+  const reportPath = path.join(rootDir, 'GRAPH_REPORT.md');
+  const htmlPath = path.join(rootDir, 'graph.html');
+  const snapshotPath = path.join(rootDir, '.last-build-snapshot.json');
+  const needsUpdatePath = path.join(rootDir, 'needs_update');
+
+  const files = {
+    graph_json: fs.existsSync(graphPath),
+    graph_report: fs.existsSync(reportPath),
+    graph_html: fs.existsSync(htmlPath),
+    snapshot: fs.existsSync(snapshotPath),
+    needs_update: fs.existsSync(needsUpdatePath),
+  };
+
+  const exists = files.graph_json || files.graph_report || files.graph_html;
+  let graph_mtime = null;
+  let age_hours = null;
+  let stale_by_age = false;
+
+  if (files.graph_json) {
+    const stat = fs.statSync(graphPath);
+    graph_mtime = stat.mtime.toISOString();
+    const age = Date.now() - stat.mtimeMs;
+    age_hours = Math.round(age / (60 * 60 * 1000));
+    stale_by_age = age > GRAPHIFY_STALE_MS;
+  }
+
+  return {
+    path: rootDir,
+    exists,
+    files,
+    graph_mtime,
+    age_hours,
+    stale: files.needs_update || stale_by_age,
+    stale_reasons: [
+      ...(files.needs_update ? ['needs_update'] : []),
+      ...(stale_by_age ? ['age_threshold'] : []),
+    ],
+  };
+}
+
+function countRepoFiles(cwd) {
+  const gitResult = childProcess.spawnSync('git', ['ls-files'], {
+    cwd,
+    stdio: 'pipe',
+    encoding: 'utf-8',
+    timeout: 5000,
+  });
+
+  if (!gitResult.error && gitResult.status === 0 && gitResult.stdout) {
+    return {
+      method: 'git_ls_files',
+      count: gitResult.stdout.split(/\r?\n/).filter(Boolean).length,
+    };
+  }
+
+  let count = 0;
+  const ignored = new Set(['.git', 'node_modules', '.venv', 'graphify-out']);
+  function walk(dir) {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (_e) {
+      return;
+    }
+    for (const entry of entries) {
+      if (ignored.has(entry.name)) continue;
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(p);
+      } else if (entry.isFile()) {
+        count += 1;
+      }
+    }
+  }
+  walk(cwd);
+  return { method: 'filesystem_walk', count };
+}
+
+function verifyGraphifySource(cwd) {
+  const requiredSource = process.env.GSD_GRAPHIFY_REQUIRE_SOURCE;
+  if (!requiredSource) {
+    return { required: false, ok: null, path: null };
+  }
+
+  const result = execGraphify(cwd, ['doctor', '--require-source', requiredSource], { timeout: 10000 });
+  return {
+    required: true,
+    ok: result.exitCode === 0,
+    path: requiredSource,
+    reason: result.reason,
+    stderr: result.stderr,
+  };
+}
+
+/**
+ * Return read-only Graphify context status without requiring graphify.enabled.
+ * This is advisory: build/query/status/diff stay config-gated.
+ *
+ * @param {string} cwd - Working directory
+ * @returns {object}
+ */
+function graphifyContextStatus(cwd) {
+  const planningDir = path.join(cwd, '.planning');
+  const enabled = isGraphifyEnabled(planningDir);
+  const installed = checkGraphifyInstalled();
+  const source = installed.installed
+    ? verifyGraphifySource(cwd)
+    : { required: Boolean(process.env.GSD_GRAPHIFY_REQUIRE_SOURCE), ok: false, path: process.env.GSD_GRAPHIFY_REQUIRE_SOURCE || null };
+  const graphifyignoreExists = fs.existsSync(path.join(cwd, '.graphifyignore'));
+  const gsdRoot = graphRootStatus(path.join(planningDir, 'graphs'));
+  const standardRoot = graphRootStatus(path.join(cwd, 'graphify-out'));
+  const repoFiles = countRepoFiles(cwd);
+  const recommendedBySize = repoFiles.count >= GRAPHIFY_RECOMMENDED_FILE_THRESHOLD;
+  const hasAnyGraph = gsdRoot.exists || standardRoot.exists;
+  const stale = (gsdRoot.exists && gsdRoot.stale) || (standardRoot.exists && standardRoot.stale);
+
+  let state;
+  if (!installed.installed || (source.required && source.ok === false)) {
+    state = GRAPHIFY_CONTEXT_STATES.UNAVAILABLE;
+  } else if (!hasAnyGraph && recommendedBySize && !graphifyignoreExists) {
+    state = GRAPHIFY_CONTEXT_STATES.UNSAFE_MISSING_IGNORE;
+  } else if (stale) {
+    state = GRAPHIFY_CONTEXT_STATES.STALE;
+  } else if (gsdRoot.exists) {
+    state = GRAPHIFY_CONTEXT_STATES.AVAILABLE;
+  } else if (standardRoot.exists) {
+    state = GRAPHIFY_CONTEXT_STATES.AVAILABLE_STANDARD_ONLY;
+  } else if (recommendedBySize) {
+    state = GRAPHIFY_CONTEXT_STATES.RECOMMENDED;
+  } else {
+    state = GRAPHIFY_CONTEXT_STATES.NOT_NEEDED;
+  }
+
+  return {
+    state,
+    enabled,
+    config_gate_required_for_build_query_diff: true,
+    graphify: {
+      installed: installed.installed,
+      message: installed.message || null,
+      source,
+    },
+    graphifyignore_exists: graphifyignoreExists,
+    roots: {
+      gsd: gsdRoot,
+      standard: standardRoot,
+      authoritative_for_query_diff: '.planning/graphs',
+    },
+    stale,
+    repo: {
+      file_count: repoFiles.count,
+      file_count_method: repoFiles.method,
+      recommended_file_threshold: GRAPHIFY_RECOMMENDED_FILE_THRESHOLD,
+      recommended_by_size: recommendedBySize,
+    },
+    state_precedence: [
+      GRAPHIFY_CONTEXT_STATES.UNAVAILABLE,
+      GRAPHIFY_CONTEXT_STATES.UNSAFE_MISSING_IGNORE,
+      GRAPHIFY_CONTEXT_STATES.STALE,
+      GRAPHIFY_CONTEXT_STATES.AVAILABLE,
+      GRAPHIFY_CONTEXT_STATES.AVAILABLE_STANDARD_ONLY,
+      GRAPHIFY_CONTEXT_STATES.RECOMMENDED,
+      GRAPHIFY_CONTEXT_STATES.NOT_NEEDED,
+    ],
+  };
+}
+
 /**
  * Build a bidirectional adjacency map from graph nodes and edges.
  * Each node ID maps to an array of { target, edge } entries.
@@ -397,11 +581,22 @@ function countCommitsBetween(cwd, from, to) {
  * fresh").
  *
  * @param {string} cwd - Working directory
+ * @param {{ disabledContext?: boolean }} [options={}]
  * @returns {object}
  */
-function graphifyStatus(cwd) {
+function graphifyStatus(cwd, options = {}) {
   const planningDir = path.join(cwd, '.planning');
-  if (!isGraphifyEnabled(planningDir)) return disabledResponse();
+  if (!isGraphifyEnabled(planningDir)) {
+    if (options.disabledContext) {
+      return {
+        status_bypass: true,
+        mode: 'context-status',
+        message: 'Graphify is disabled; showing read-only Graphify context status.',
+        ...graphifyContextStatus(cwd),
+      };
+    }
+    return disabledResponse();
+  }
 
   const graphPath = path.join(planningDir, 'graphs', 'graph.json');
   if (!fs.existsSync(graphPath)) {
@@ -578,6 +773,9 @@ module.exports = {
   // Presence and version
   checkGraphifyInstalled,
   checkGraphifyVersion,
+  // Context status (ungated advisory helper)
+  graphifyContextStatus,
+  GRAPHIFY_CONTEXT_STATES,
   // Query (Phase 2)
   graphifyQuery,
   safeReadJson,

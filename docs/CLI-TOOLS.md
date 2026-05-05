@@ -444,8 +444,11 @@ node gsd-tools.cjs graphify build
 # Search the graph for a term
 node gsd-tools.cjs graphify query <term>
 
-# Show graph freshness and statistics
+# Show graph freshness/statistics, or read-only context when disabled
 node gsd-tools.cjs graphify status
+
+# Inspect Graphify context availability without requiring graphify.enabled
+node gsd-tools.cjs graphify context-status
 
 # Show changes since the last build
 node gsd-tools.cjs graphify diff
@@ -455,6 +458,14 @@ node gsd-tools.cjs graphify snapshot [name]
 ```
 
 User-facing entry point: `/gsd-graphify` (see [Command Reference](COMMANDS.md#gsd-graphify)).
+
+`status` is read-only and may run without `graphify.enabled`; when disabled, it
+returns the same advisory shape as `context-status` with `status_bypass: true`.
+`context-status` is the explicit programmatic advisory check. Both report
+whether standard `graphify-out/` artifacts or GSD's mirrored `.planning/graphs/`
+artifacts are present, stale, unavailable, or worth suggesting. They do not
+build a graph and do not bypass the existing config gate for `build`, `query`,
+or `diff`.
 
 ---
 

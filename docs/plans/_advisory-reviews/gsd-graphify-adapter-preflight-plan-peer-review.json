@@ -1,0 +1,192 @@
+{
+  "schema_version": "peer-review-v1",
+  "review_id": "peer-review-93bf653293e8",
+  "plan_path": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/gsd-graphify-adapter-preflight-plan.md",
+  "plan_sha256": "26363e927aa09f7ce89e67a30b5523f50950061d73397d5d6a7fd4dcc12dcf6d",
+  "mode": "advisory-challenge",
+  "sidecar_dir": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_advisory-reviews",
+  "engine": "Claude",
+  "requested_engine": "opposite",
+  "origin_runtime": "codex",
+  "engine_policy": "opposite_preferred",
+  "resolved_primary_engine": "claude",
+  "preferred_engine": "claude",
+  "fallback_engine": null,
+  "final_engine": "claude",
+  "reviewer_match": "opposite",
+  "gate_quality": "preferred",
+  "artifact_role": "canonical",
+  "canonical_sidecar_path": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_advisory-reviews/gsd-graphify-adapter-preflight-plan-peer-review.json",
+  "fallback_used": false,
+  "fallback_reason": null,
+  "attempt_chain": [
+    {
+      "engine": "claude",
+      "phase": "primary",
+      "attempt": 1,
+      "timeout_seconds": 300,
+      "result": "completed",
+      "elapsed_seconds": 238.819,
+      "returncode": 0
+    }
+  ],
+  "model": "claude-opus-4-6",
+  "verdict": null,
+  "stance": "supportive",
+  "issues_count": 4,
+  "ran_at": "2026-05-05T16:31:47.599177+00:00",
+  "raw_review_excerpt": "The plan is well-grounded against the actual codebase. graphifyBuild() at graphify.cjs:461 already does the build preflight the plan says not to duplicate. The CLI router at gsd-tools.cjs:1009 supports adding context-status as a single new branch. All existing graphify functions are config-gated; the plan's explicit decision to ungate the new checker is internally justified and consistent. .planning/graphs/ root authority matches code reality across query/status/diff. No correctness or feasibility blockers found. Four issues remain: state-precedence ordering for overlapping conditions, no concrete repo-size threshold, missing CLI help-string update, and a test-placement ambiguity for the \"both roots exist\" case.\n\nIssues:\n- 1. [WARN] State precedence undefined for overlapping conditions\n- 2. [NOTE] No concrete repo-size threshold for recommended vs not_needed\n- 3. [NOTE] CLI help string at gsd-tools.cjs:1029 needs context-status\n- 4. [NOTE] Test for both-roots-exist targets wrong surface",
+  "error": null,
+  "closure_verification": "",
+  "prior_round_closure": [],
+  "rerun_recommendation": null,
+  "review": {
+    "mode": "advisory-challenge",
+    "summary": "The plan is well-grounded against the actual codebase. graphifyBuild() at graphify.cjs:461 already does the build preflight the plan says not to duplicate. The CLI router at gsd-tools.cjs:1009 supports adding context-status as a single new branch. All existing graphify functions are config-gated; the plan's explicit decision to ungate the new checker is internally justified and consistent. .planning/graphs/ root authority matches code reality across query/status/diff. No correctness or feasibility blockers found. Four issues remain: state-precedence ordering for overlapping conditions, no concrete repo-size threshold, missing CLI help-string update, and a test-placement ambiguity for the \"both roots exist\" case.",
+    "rubric_cards": [
+      {
+        "title": "Claim anchoring",
+        "anchor": "Plan claims vs graphify.cjs + gsd-tools.cjs",
+        "claim": "Plan says: do not duplicate graphifyBuild(), keep .planning/graphs/ as root, ungate the new checker, add context-status CLI route.",
+        "evidence": "graphifyBuild() at graphify.cjs:461 is already config-gated build preflight returning spawn_agent. CLI router at gsd-tools.cjs:1009-1032 routes build|query|status|diff through graphify.cjs. All existing public functions call disabledResponse() when not enabled. .planning/graphs/ is the read root at lines 335, 371, 407. Adding context-status is one new case branch.",
+        "disposition": "All load-bearing claims verified against source. Plan accurately describes existing code and proposed gap."
+      },
+      {
+        "title": "Disposition matrix",
+        "anchor": "Artifact + conversation + campaign coverage",
+        "claim": "Plan covers first-slice scope with explicit deferrals for status edits, workflow integration, and root migration.",
+        "evidence": "Artifact text enumerates seven checker states, CLI route, test matrix, and four phases with clear first-slice boundary. Conversation clarified context-status as sole ungated surface and deferred /gsd-graphify status edits. Campaign coverage is partial \u2014 only the first slice is specified.",
+        "disposition": "Artifact is internally consistent. Conversation evidence confirms scope narrowing. Campaign coverage limited to first slice by design."
+      },
+      {
+        "title": "Coverage scope",
+        "anchor": "Review scope and uncovered areas",
+        "claim": "Review covered the plan artifact, graphify.cjs (full), gsd-tools.cjs CLI routing, graphify.test.cjs, and command doc graphify.md.",
+        "evidence": "Read graphify.cjs lines 1-544, gsd-tools.cjs lines 1-1060, graphify.test.cjs lines 1-1138, graphify.md lines 1-80. Did not inspect planner/researcher agent integration (deferred by plan) or COMMANDS.md/CONFIGURATION.md/CLI-TOOLS.md doc targets.",
+        "disposition": "Sufficient for first-slice freshness check. Doc-target files not inspected but are deferred-phase deliverables."
+      }
+    ],
+    "disposition_matrix": {
+      "rows": [
+        "artifact",
+        "conversation",
+        "campaign"
+      ],
+      "columns": [
+        "present",
+        "partial",
+        "missing"
+      ],
+      "cells": [
+        [
+          "checker states, CLI route, test plan, risk controls",
+          "state precedence ordering, repo-size threshold",
+          "CLI help-string update for context-status"
+        ],
+        [
+          "scope narrowing to context-status, status/workflow deferral confirmed",
+          "\u2014",
+          "\u2014"
+        ],
+        [
+          "first-slice plan complete",
+          "later phases sketched only",
+          "workflow-integration details, root migration plan"
+        ]
+      ]
+    },
+    "conversation_evidence": {
+      "used": true,
+      "sources": [
+        "Focus directive: 'Final freshness review after clarifying context-status as the sole ungated first-slice surface and deferring /gsd-graphify status/workflow edits'"
+      ],
+      "summary": "Conversation confirms two key scope decisions: (1) context-status is the sole ungated first-slice surface, and (2) /gsd-graphify status and workflow-agent edits are deferred. The plan artifact reflects both decisions accurately.",
+      "gaps": [
+        "No conversation evidence for how state-precedence overlaps were resolved",
+        "No conversation evidence for repo-size threshold choice"
+      ]
+    },
+    "campaign_coverage": {
+      "scope": "slice-only",
+      "covered": [
+        "Phase 1 read-only context checker design",
+        "Phase 2 CLI route (context-status only)",
+        "Phase 4 test matrix for checker"
+      ],
+      "missing": [
+        "Phase 3 workflow integration details",
+        "Root migration planning",
+        "/gsd-graphify status config-gate bypass decision"
+      ],
+      "gaps": [
+        "Later phases are sketched directionally but not specified enough to implement without further planning"
+      ]
+    },
+    "issues": [
+      {
+        "title": "State precedence undefined for overlapping conditions",
+        "details": "Seven checker states are enumerated but their priority ordering is unspecified. Multiple conditions can be true simultaneously (e.g. graphify-out/ exists + .graphifyignore missing + repo is large). Without a precedence rule, implementation will require design decisions the plan doesn't capture, and tests can't pin expected behavior for compound cases.",
+        "suggested_fix": "Add a precedence table or decision flowchart: check conditions in a defined order and return the first matching state. For example: unavailable > unsafe_missing_ignore > available > available_standard_only > stale > recommended > not_needed.",
+        "severity": "WARN"
+      },
+      {
+        "title": "No concrete repo-size threshold for recommended vs not_needed",
+        "details": "The plan says 'use a conservative heuristic such as tracked file count or relevant docs/code count' but commits to no number. Tests listed in Phase 4 don't include threshold-boundary cases, so the test matrix can't fully cover the heuristic without an implementation-time design decision.",
+        "suggested_fix": "Either commit to a threshold in the plan (e.g. >200 tracked files = recommended) or explicitly note that the threshold is a design decision deferred to implementation with a follow-up test pass.",
+        "severity": "NOTE"
+      },
+      {
+        "title": "CLI help string at gsd-tools.cjs:1029 needs context-status",
+        "details": "The existing fallthrough error message lists 'Available: build, query, status, diff'. Adding context-status requires updating this string. The plan's implementation section doesn't enumerate this touchpoint.",
+        "suggested_fix": "Add 'update gsd-tools.cjs graphify subcommand error message to include context-status' to the Phase 2 implementation checklist.",
+        "severity": "NOTE"
+      },
+      {
+        "title": "Test for both-roots-exist targets wrong surface",
+        "details": "The Phase 4 test 'both roots exist and .planning/graphs/ remains the GSD query/diff root' describes behavior of graphifyQuery/graphifyDiff, not of graphifyContextStatus. The new checker should report both roots and their states; the root-authority assertion belongs on the existing query/diff functions which are not being changed.",
+        "suggested_fix": "Reframe the test: 'both roots exist \u2192 checker reports available (not available_standard_only) because .planning/graphs/ mirror is present'. Drop the query/diff root-authority assertion from the checker test \u2014 that's already covered by existing graphifyQuery/graphifyDiff tests.",
+        "severity": "NOTE"
+      }
+    ],
+    "verification_gaps": [
+      "State-precedence behavior under compound conditions (e.g. stale + missing ignore + large repo) is untestable without ordering rules",
+      "Repo-size heuristic boundary is unspecified \u2014 threshold tests will need design-time values",
+      "CLI help-string update not enumerated in implementation touchpoints",
+      "graphify.md command doc (deferred) \u2014 no current plan for how /gsd-graphify status relates to context-status long-term"
+    ],
+    "recommended_fixes": [
+      "Add a state-precedence table or decision flowchart to the plan before implementation",
+      "Commit to a concrete repo-size threshold or explicitly mark it as an implementation-time design decision with test-backfill",
+      "Add gsd-tools.cjs help-string update to Phase 2 checklist",
+      "Reframe the both-roots-exist test to assert on checker output shape, not on query/diff root authority"
+    ],
+    "evidence_sources": [
+      "get-shit-done/bin/lib/graphify.cjs (lines 1-544, full file)",
+      "get-shit-done/bin/gsd-tools.cjs (lines 1-1060, CLI router and graphify case)",
+      "tests/graphify.test.cjs (lines 1-1138, full file)",
+      "commands/gsd/graphify.md (lines 1-80, command doc header and config gate)"
+    ],
+    "error": null,
+    "stance": "supportive",
+    "best_case": "The plan produces a clean, minimal read-only checker that lets GSD detect graph availability across both artifact roots without touching any existing behavior. The ungated design lets GSD recommend Graphify before config is set \u2014 filling the current gap where users have no way to discover whether Graphify would help. Implementation is a single new function plus one CLI branch, with clear test coverage. All existing graphify functions remain unchanged.",
+    "strongest_objections": [
+      "State precedence is undefined: with seven possible states and overlapping trigger conditions, implementation will require design decisions the plan doesn't capture. This isn't a blocker but will slow implementation and make test assertions ambiguous.",
+      "The repo-size heuristic for recommended vs not_needed has no concrete threshold. Without a number, the test matrix is incomplete and the behavior is effectively undefined until implementation time.",
+      "The plan doesn't enumerate the gsd-tools.cjs help-string touchpoint for the new context-status subcommand \u2014 a minor but real gap in the implementation checklist."
+    ],
+    "hidden_assumptions": [
+      "The plan assumes graphify-out/ will always be at cwd/graphify-out \u2014 but Graphify's output directory may be configurable in some setups. No plan to detect a non-default output path.",
+      "The plan assumes fs.existsSync checks on artifact files are sufficient for freshness \u2014 but doesn't define what 'stale by age threshold' means concretely (24h? configurable?). The existing graphifyStatus uses 24h hardcoded, but the checker may want a different or configurable threshold.",
+      "The plan assumes GSD_GRAPHIFY_REQUIRE_SOURCE will be an env var, but the open question about config key vs env var is unresolved. Implementation will need to pick one.",
+      "The plan assumes the checker needs no config gate, but doesn't address whether an ungated function reading filesystem state in every project (even non-Graphify ones) has any performance or noise implications."
+    ],
+    "what_would_change_my_mind": "If state-precedence ambiguity caused the implementation to produce inconsistent test results across the seven states, or if the ungated checker introduced measurable latency in non-Graphify projects due to filesystem probing, I would escalate the precedence and gating issues from WARN/NOTE to BLOCK. Currently neither is evidenced \u2014 the checker is pure filesystem reads (fast) and the precedence gap is a design clarity issue, not a correctness failure.",
+    "next_checks": [
+      "Implement graphifyContextStatus with a defined state-precedence order and verify tests pass for all seven states including compound conditions",
+      "Add context-status to the gsd-tools.cjs graphify switch and update the help string",
+      "Run the existing graphify.test.cjs suite to confirm no regressions from the new export",
+      "Test the ungated behavior: call context-status in a project with graphify.enabled=false and verify it returns useful advisory output",
+      "Verify graphify-out/ detection works when the directory exists but is empty vs populated"
+    ]
+  }
+}

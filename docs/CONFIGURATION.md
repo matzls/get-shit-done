@@ -450,6 +450,14 @@ A CI-built graph rebuilt minutes ago against an old checkout will read as
 fresh on mtime but `commit_stale: true`. Surface both when answering
 architecture questions.
 
+#### Advisory context status
+
+The read-only `node gsd-tools.cjs graphify status` and
+`node gsd-tools.cjs graphify context-status` checks are intentionally ungated so
+GSD can suggest Graphify before enabling build/query/diff behavior. When
+disabled, `status` returns advisory context with `status_bypass: true`;
+`context-status` always returns only advisory context.
+
 ### Usage
 
 ```bash

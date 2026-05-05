@@ -18,7 +18,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
-const { createTempProject, cleanup } = require('./helpers.cjs');
+const { createTempProject, cleanup, runGsdTools } = require('./helpers.cjs');
 
 const {
   isGraphifyEnabled,
@@ -27,6 +27,8 @@ const {
   GRAPHIFY_REASON,
   checkGraphifyInstalled,
   checkGraphifyVersion,
+  graphifyContextStatus,
+  GRAPHIFY_CONTEXT_STATES,
   // Phase 2
   graphifyQuery,
   graphifyStatus,
@@ -59,6 +61,41 @@ function writeGraphJson(planningDir, data) {
     JSON.stringify(data, null, 2),
     'utf8'
   );
+}
+
+function writeStandardGraph(rootDir, data = SAMPLE_GRAPH) {
+  const graphifyOut = path.join(rootDir, 'graphify-out');
+  fs.mkdirSync(graphifyOut, { recursive: true });
+  fs.writeFileSync(
+    path.join(graphifyOut, 'graph.json'),
+    JSON.stringify(data, null, 2),
+    'utf8'
+  );
+}
+
+function writeGraphReport(rootDir, report = '# Graph Report\n') {
+  fs.mkdirSync(rootDir, { recursive: true });
+  fs.writeFileSync(path.join(rootDir, 'GRAPH_REPORT.md'), report, 'utf8');
+}
+
+function touchGraphifyIgnore(rootDir) {
+  fs.writeFileSync(path.join(rootDir, '.graphifyignore'), 'graphify-out/\n', 'utf8');
+}
+
+function mockGraphifyAvailable(fileCount = 0) {
+  mock.method(childProcess, 'spawnSync', (cmd, args) => {
+    if (cmd === 'graphify' && args && args[0] === '--help') {
+      return { status: 0, stdout: 'Usage: graphify', stderr: '', error: undefined, signal: null };
+    }
+    if (cmd === 'graphify' && args && args[0] === 'doctor') {
+      return { status: 0, stdout: 'ok', stderr: '', error: undefined, signal: null };
+    }
+    if (cmd === 'git' && args && args[0] === 'ls-files') {
+      const files = Array.from({ length: fileCount }, (_v, i) => `file-${i}.js`).join('\n');
+      return { status: 0, stdout: files, stderr: '', error: undefined, signal: null };
+    }
+    return { status: 0, stdout: '', stderr: '', error: undefined, signal: null };
+  });
 }
 
 function writeSnapshotJson(planningDir, data) {
@@ -102,6 +139,7 @@ describe('isGraphifyEnabled', () => {
 
   afterEach(() => {
     cleanup(tmpDir);
+    mock.restoreAll();
   });
 
   test('returns false when no config.json exists', () => {
@@ -690,6 +728,17 @@ describe('graphifyStatus', () => {
     assert.strictEqual(result.disabled, true);
   });
 
+  test('returns read-only context when disabledContext is requested', () => {
+    mockGraphifyAvailable(10);
+    touchGraphifyIgnore(tmpDir);
+
+    const result = graphifyStatus(tmpDir, { disabledContext: true });
+    assert.strictEqual(result.status_bypass, true);
+    assert.strictEqual(result.mode, 'context-status');
+    assert.strictEqual(result.enabled, false);
+    assert.strictEqual(result.state, GRAPHIFY_CONTEXT_STATES.NOT_NEEDED);
+  });
+
   // STAT-02: returns exists:false when no graph.json
   test('returns exists:false when no graph.json (STAT-02)', () => {
     enableGraphify(planningDir);
@@ -855,6 +904,181 @@ describe('graphifyDiff', () => {
     assert.strictEqual(result.edges.changed, 1, 'edge confidence change must be detected via links key');
     assert.strictEqual(result.edges.added, 0);
     assert.strictEqual(result.edges.removed, 0);
+  });
+});
+
+// ─── graphifyContextStatus (ungated advisory helper) ───────────────────────
+
+describe('graphifyContextStatus', () => {
+  let tmpDir;
+  let planningDir;
+
+  beforeEach(() => {
+    tmpDir = createTempProject();
+    planningDir = path.join(tmpDir, '.planning');
+  });
+
+  afterEach(() => {
+    cleanup(tmpDir);
+    mock.restoreAll();
+    delete process.env.GSD_GRAPHIFY_REQUIRE_SOURCE;
+  });
+
+  test('returns unavailable when graphify is not installed', () => {
+    mock.method(childProcess, 'spawnSync', (cmd, args) => {
+      if (cmd === 'graphify' && args && args[0] === '--help') {
+        return {
+          status: null,
+          stdout: '',
+          stderr: '',
+          error: { code: 'ENOENT' },
+          signal: null,
+        };
+      }
+      return { status: 0, stdout: '', stderr: '', error: undefined, signal: null };
+    });
+
+    const result = graphifyContextStatus(tmpDir);
+    assert.strictEqual(result.state, GRAPHIFY_CONTEXT_STATES.UNAVAILABLE);
+    assert.strictEqual(result.enabled, false);
+    assert.strictEqual(result.config_gate_required_for_build_query_diff, true);
+  });
+
+  test('returns not_needed for a small project with no graph', () => {
+    mockGraphifyAvailable(10);
+    touchGraphifyIgnore(tmpDir);
+
+    const result = graphifyContextStatus(tmpDir);
+    assert.strictEqual(result.state, GRAPHIFY_CONTEXT_STATES.NOT_NEEDED);
+    assert.strictEqual(result.repo.recommended_by_size, false);
+    assert.strictEqual(result.graphifyignore_exists, true);
+  });
+
+  test('returns recommended for a large project with ignore and no graph', () => {
+    mockGraphifyAvailable(250);
+    touchGraphifyIgnore(tmpDir);
+
+    const result = graphifyContextStatus(tmpDir);
+    assert.strictEqual(result.state, GRAPHIFY_CONTEXT_STATES.RECOMMENDED);
+    assert.strictEqual(result.repo.recommended_file_threshold, 200);
+    assert.strictEqual(result.repo.recommended_by_size, true);
+  });
+
+  test('returns unsafe_missing_ignore for a large project without ignore', () => {
+    mockGraphifyAvailable(250);
+
+    const result = graphifyContextStatus(tmpDir);
+    assert.strictEqual(result.state, GRAPHIFY_CONTEXT_STATES.UNSAFE_MISSING_IGNORE);
+    assert.strictEqual(result.graphifyignore_exists, false);
+  });
+
+  test('returns available_standard_only when graphify-out exists without GSD mirror', () => {
+    mockGraphifyAvailable(10);
+    touchGraphifyIgnore(tmpDir);
+    writeStandardGraph(tmpDir);
+    writeGraphReport(path.join(tmpDir, 'graphify-out'));
+
+    const result = graphifyContextStatus(tmpDir);
+    assert.strictEqual(result.state, GRAPHIFY_CONTEXT_STATES.AVAILABLE_STANDARD_ONLY);
+    assert.strictEqual(result.roots.standard.exists, true);
+    assert.strictEqual(result.roots.gsd.exists, false);
+    assert.strictEqual(result.roots.authoritative_for_query_diff, '.planning/graphs');
+  });
+
+  test('returns available when .planning/graphs exists, including both-roots case', () => {
+    mockGraphifyAvailable(10);
+    touchGraphifyIgnore(tmpDir);
+    writeStandardGraph(tmpDir);
+    writeGraphJson(planningDir, SAMPLE_GRAPH);
+    writeGraphReport(path.join(planningDir, 'graphs'));
+
+    const result = graphifyContextStatus(tmpDir);
+    assert.strictEqual(result.state, GRAPHIFY_CONTEXT_STATES.AVAILABLE);
+    assert.strictEqual(result.roots.standard.exists, true);
+    assert.strictEqual(result.roots.gsd.exists, true);
+  });
+
+  test('returns stale when graphify-out has needs_update', () => {
+    mockGraphifyAvailable(10);
+    touchGraphifyIgnore(tmpDir);
+    writeStandardGraph(tmpDir);
+    fs.writeFileSync(path.join(tmpDir, 'graphify-out', 'needs_update'), '1', 'utf8');
+
+    const result = graphifyContextStatus(tmpDir);
+    assert.strictEqual(result.state, GRAPHIFY_CONTEXT_STATES.STALE);
+    assert.strictEqual(result.stale, true);
+    assert.deepStrictEqual(result.roots.standard.stale_reasons, ['needs_update']);
+  });
+
+  test('stale graph takes precedence over missing ignore when graph exists', () => {
+    mockGraphifyAvailable(250);
+    writeGraphJson(planningDir, SAMPLE_GRAPH);
+    fs.writeFileSync(path.join(planningDir, 'graphs', 'needs_update'), '1', 'utf8');
+
+    const result = graphifyContextStatus(tmpDir);
+    assert.strictEqual(result.state, GRAPHIFY_CONTEXT_STATES.STALE);
+    assert.strictEqual(result.graphifyignore_exists, false);
+  });
+
+  test('source verification failure returns unavailable when env var is set', () => {
+    process.env.GSD_GRAPHIFY_REQUIRE_SOURCE = '/expected/graphify';
+    mock.method(childProcess, 'spawnSync', (cmd, args) => {
+      if (cmd === 'graphify' && args && args[0] === '--help') {
+        return { status: 0, stdout: 'Usage: graphify', stderr: '', error: undefined, signal: null };
+      }
+      if (cmd === 'graphify' && args && args[0] === 'doctor') {
+        return { status: 1, stdout: '', stderr: 'wrong source', error: undefined, signal: null };
+      }
+      if (cmd === 'git' && args && args[0] === 'ls-files') {
+        return { status: 0, stdout: '', stderr: '', error: undefined, signal: null };
+      }
+      return { status: 0, stdout: '', stderr: '', error: undefined, signal: null };
+    });
+
+    const result = graphifyContextStatus(tmpDir);
+    assert.strictEqual(result.state, GRAPHIFY_CONTEXT_STATES.UNAVAILABLE);
+    assert.strictEqual(result.graphify.source.required, true);
+    assert.strictEqual(result.graphify.source.ok, false);
+  });
+
+  test('CLI context-status route is ungated', () => {
+    touchGraphifyIgnore(tmpDir);
+    const binDir = path.join(tmpDir, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    const fakeGraphify = path.join(binDir, 'graphify');
+    fs.writeFileSync(fakeGraphify, '#!/bin/sh\necho "Usage: graphify"\n', 'utf8');
+    fs.chmodSync(fakeGraphify, 0o755);
+
+    const result = runGsdTools(
+      ['graphify', 'context-status', '--raw'],
+      tmpDir,
+      { PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}` }
+    );
+    assert.strictEqual(result.success, true);
+    const data = JSON.parse(result.output);
+    assert.strictEqual(data.enabled, false);
+    assert.strictEqual(data.state, GRAPHIFY_CONTEXT_STATES.NOT_NEEDED);
+  });
+
+  test('CLI status route shows context when graphify is disabled', () => {
+    touchGraphifyIgnore(tmpDir);
+    const binDir = path.join(tmpDir, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    const fakeGraphify = path.join(binDir, 'graphify');
+    fs.writeFileSync(fakeGraphify, '#!/bin/sh\necho "Usage: graphify"\n', 'utf8');
+    fs.chmodSync(fakeGraphify, 0o755);
+
+    const result = runGsdTools(
+      ['graphify', 'status', '--raw'],
+      tmpDir,
+      { PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}` }
+    );
+    assert.strictEqual(result.success, true);
+    const data = JSON.parse(result.output);
+    assert.strictEqual(data.status_bypass, true);
+    assert.strictEqual(data.mode, 'context-status');
+    assert.strictEqual(data.enabled, false);
+    assert.strictEqual(data.state, GRAPHIFY_CONTEXT_STATES.NOT_NEEDED);
   });
 });
 
