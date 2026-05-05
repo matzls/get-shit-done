@@ -106,7 +106,7 @@ Create detailed execution plan for a specific phase.
 - `--tdd` — plan in test-driven order (tests before code)
 - `--mvp` — vertical-slice MVP planning mode
 
-- Generates `.planning/phases/XX-phase-name/XX-YY-PLAN.md`
+- Generates `.planning/phases/XX-phase-name/XX-YY-PLAN.md` and human-readable `XX-YY-BRIEF.md`
 - Breaks phase into concrete, actionable tasks
 - Includes verification criteria and success measures
 - Multiple plans per phase supported (XX-01, XX-02, etc.)
@@ -120,6 +120,17 @@ Result: Creates `.planning/phases/01-foundation/01-01-PLAN.md`
 **PRD Express Path:** Pass `--prd path/to/requirements.md` to skip discuss-phase entirely. Your PRD becomes locked decisions in CONTEXT.md. Useful when you already have clear acceptance criteria. Cannot be combined with `--ingest`.
 
 **ADR Ingest Express Path:** Pass `--ingest path/to/adr.md` (or a glob) to skip discuss-phase and synthesize CONTEXT.md from approved ADR decisions and scope fences. Cannot be combined with `--prd`.
+
+**`/gsd-plan-brief <plan-path|phase> [--check]`**
+Generate or check human-readable brief companions for executable plans.
+
+- Creates `XX-YY-BRIEF.md` beside each matching `XX-YY-PLAN.md`
+- Records a source plan hash so stale briefs can be detected later
+- Use `--check` to verify existing briefs without writing files
+
+Usage: `/gsd-plan-brief 1`
+Usage: `/gsd-plan-brief .planning/phases/01-foundation/01-01-PLAN.md`
+Usage: `/gsd-plan-brief 1 --check`
 
 ### Execution
 

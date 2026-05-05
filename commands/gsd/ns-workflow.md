@@ -17,6 +17,7 @@ absorbs the former next/do commands.
 | Gather context before planning | gsd-discuss-phase |
 | Clarify what a phase delivers | gsd-spec-phase |
 | Create a PLAN.md | gsd-plan-phase |
+| Generate or check human-readable plan briefs | gsd-plan-brief |
 | Execute plans in a phase | gsd-execute-phase |
 | Verify built features through UAT | gsd-verify-work |
 | Add / insert / remove / edit a phase | gsd-phase |

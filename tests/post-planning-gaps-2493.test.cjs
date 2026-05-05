@@ -2,8 +2,8 @@
  * Issue #2493: Add unified post-planning gap checker for requirements and context
  *
  * Verifies:
- *   1. Step 13e (Post-Planning Gap Analysis) is inserted into plan-phase.md after
- *      Step 13d and before Step 14, gated on workflow.post_planning_gaps.
+ *   1. Step 13f (Post-Planning Gap Analysis) is inserted into plan-phase.md after
+ *      the plan brief and commit-plan steps, gated on workflow.post_planning_gaps.
  *   2. Headless plan-phase variant has an equivalent post_planning_gaps step.
  *   3. The decision parser extracts D-NN entries from CONTEXT.md <decisions> blocks.
  *   4. The gap detector identifies covered vs not-covered items, avoiding
@@ -33,41 +33,43 @@ const PLAN_PHASE_PATH = path.join(REPO_ROOT, 'get-shit-done', 'workflows', 'plan
 
 // ─── Workflow file structure ──────────────────────────────────────────────────
 
-describe('plan-phase.md Step 13e insertion (#2493)', () => {
+describe('plan-phase.md Step 13f insertion (#2493)', () => {
   test('plan-phase.md exists', () => {
     assert.ok(fs.existsSync(PLAN_PHASE_PATH));
   });
 
-  test('Step 13e (Post-Planning Gap Analysis) heading is present', () => {
+  test('Step 13f (Post-Planning Gap Analysis) heading is present', () => {
     const content = fs.readFileSync(PLAN_PHASE_PATH, 'utf-8');
-    assert.match(content, /## 13e\.\s*Post-Planning Gap Analysis/);
+    assert.match(content, /## 13f\.\s*Post-Planning Gap Analysis/);
   });
 
-  test('Step 13e appears between Step 13d and Step 14', () => {
+  test('Step 13f appears after Step 13e and before Step 14', () => {
     const content = fs.readFileSync(PLAN_PHASE_PATH, 'utf-8');
     const i13d = content.indexOf('## 13d.');
     const i13e = content.indexOf('## 13e.');
+    const i13f = content.indexOf('## 13f.');
     const i14 = content.indexOf('## 14.');
     assert.ok(i13d !== -1, '## 13d. must exist');
     assert.ok(i13e !== -1, '## 13e. must exist');
+    assert.ok(i13f !== -1, '## 13f. must exist');
     assert.ok(i14 !== -1, '## 14. must exist');
-    assert.ok(i13d < i13e && i13e < i14,
-      `Step 13e must be between 13d and 14 (got 13d=${i13d}, 13e=${i13e}, 14=${i14})`);
+    assert.ok(i13d < i13e && i13e < i13f && i13f < i14,
+      `Step 13f must follow 13e and precede 14 (got 13d=${i13d}, 13e=${i13e}, 13f=${i13f}, 14=${i14})`);
   });
 
-  test('Step 13e references workflow.post_planning_gaps gate', () => {
+  test('Step 13f references workflow.post_planning_gaps gate', () => {
     const content = fs.readFileSync(PLAN_PHASE_PATH, 'utf-8');
-    const i13e = content.indexOf('## 13e.');
+    const i13f = content.indexOf('## 13f.');
     const i14 = content.indexOf('## 14.');
-    const stepBody = content.slice(i13e, i14);
+    const stepBody = content.slice(i13f, i14);
     assert.match(stepBody, /workflow\.post_planning_gaps/);
   });
 
-  test('Step 13e invokes gap-analysis via gsd-tools', () => {
+  test('Step 13f invokes gap-analysis via gsd-tools', () => {
     const content = fs.readFileSync(PLAN_PHASE_PATH, 'utf-8');
-    const i13e = content.indexOf('## 13e.');
+    const i13f = content.indexOf('## 13f.');
     const i14 = content.indexOf('## 14.');
-    const stepBody = content.slice(i13e, i14);
+    const stepBody = content.slice(i13f, i14);
     assert.match(stepBody, /gap-analysis/);
   });
 

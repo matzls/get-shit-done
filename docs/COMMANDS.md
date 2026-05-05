@@ -157,7 +157,7 @@ Research, plan, and verify a phase.
 | `--skip-bounce` | Skip plan bounce even if enabled in config |
 
 **Prerequisites:** `.planning/ROADMAP.md` exists
-**Produces:** `{phase}-RESEARCH.md`, `{phase}-{N}-PLAN.md`, `{phase}-VALIDATION.md`
+**Produces:** `{phase}-RESEARCH.md`, `{phase}-{N}-PLAN.md`, `{phase}-{N}-BRIEF.md`, `{phase}-VALIDATION.md`
 
 **Research-only mode (`--research-phase <N>`):**
 - No modifier: prompts `update / view / skip` if RESEARCH.md already exists.
@@ -186,6 +186,29 @@ See [Package Legitimacy Gate in the User Guide](USER-GUIDE.md#package-legitimacy
 /gsd-plan-phase --research-phase 4             # Research only on phase 4 (prompts if RESEARCH.md exists)
 /gsd-plan-phase --research-phase 4 --view      # Print existing RESEARCH.md, no spawn
 /gsd-plan-phase --research-phase 4 --research  # Force-refresh research, no prompt
+```
+
+---
+
+### `/gsd-plan-brief`
+
+Generate or check human-readable `BRIEF.md` companions for executable plans.
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `plan-path\|phase` | **Yes** | A `*-PLAN.md` file, phase directory, phase number, or phase slug |
+
+| Flag | Description |
+|------|-------------|
+| `--check` | Verify existing briefs are present and match the current source plan hash |
+
+**Prerequisites:** One or more `*-PLAN.md` files exist
+**Produces:** `{phase}-{N}-BRIEF.md`
+
+```bash
+/gsd-plan-brief .planning/phases/01-baseline/01-01-PLAN.md
+/gsd-plan-brief 1
+/gsd-plan-brief 1 --check
 ```
 
 ---

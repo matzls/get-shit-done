@@ -41,6 +41,7 @@ These files live inside a phase directory. They are NOT checked by W019 (which o
 | File Pattern | Template | Produced by | Purpose |
 |-------------|----------|-------------|---------|
 | `NN-MM-PLAN.md` | `phase-prompt.md` | `/gsd:plan-phase` | Executable implementation plan |
+| `NN-MM-BRIEF.md` | `plan-brief.md` | `/gsd:plan-phase`, `/gsd:plan-brief` | Human-readable companion derived from PLAN.md |
 | `NN-MM-SUMMARY.md` | `summary.md` | `/gsd:execute-phase` | Post-execution summary with learnings |
 | `NN-CONTEXT.md` | `context.md` | `/gsd:discuss-phase` | Scoped discussion decisions for the phase |
 | `NN-RESEARCH.md` | `research.md` | `/gsd:plan-phase`, `/gsd:plan-phase --research-phase <N>` | Technical research for the phase |

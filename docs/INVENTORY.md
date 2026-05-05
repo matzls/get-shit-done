@@ -54,7 +54,7 @@ Full roster at `agents/gsd-*.md`. The "Primary doc" column flags whether [`docs/
 
 ---
 
-## Commands (66 shipped)
+## Commands (67 shipped)
 
 Full roster at `commands/gsd/*.md`. The groupings below mirror `docs/COMMANDS.md` section order; each row carries the command name, a one-line role derived from the command's frontmatter `description:`, and a link to the source file. `tests/command-count-sync.test.cjs` locks the count against the filesystem.
 
@@ -83,6 +83,7 @@ These six routers are descriptor-only entries that the model picks first; the bo
 | `/gsd-ui-phase` | Generate UI design contract (UI-SPEC.md) for frontend phases. | [commands/gsd/ui-phase.md](../commands/gsd/ui-phase.md) |
 | `/gsd-ai-integration-phase` | Generate AI design contract (AI-SPEC.md) via framework selection, research, and eval planning. | [commands/gsd/ai-integration-phase.md](../commands/gsd/ai-integration-phase.md) |
 | `/gsd-plan-phase` | Create detailed phase plan (PLAN.md) with verification loop. | [commands/gsd/plan-phase.md](../commands/gsd/plan-phase.md) |
+| `/gsd-plan-brief` | Generate or check a human-readable BRIEF.md companion for PLAN.md artifacts. | [commands/gsd/plan-brief.md](../commands/gsd/plan-brief.md) |
 | `/gsd-plan-review-convergence` | Cross-AI plan convergence loop — replan with review feedback until no HIGH concerns remain (max 3 cycles). | [commands/gsd/plan-review-convergence.md](../commands/gsd/plan-review-convergence.md) |
 | `/gsd-ultraplan-phase` | [BETA] Offload plan phase to Claude Code's ultraplan cloud — drafts remotely, review in browser, import back via `/gsd-import`. Claude Code only. | [commands/gsd/ultraplan-phase.md](../commands/gsd/ultraplan-phase.md) |
 | `/gsd-spike` | Rapidly spike an idea with throwaway experiments; use `--wrap-up` to package findings as a persistent skill. | [commands/gsd/spike.md](../commands/gsd/spike.md) |
@@ -163,7 +164,7 @@ These six routers are descriptor-only entries that the model picks first; the bo
 
 ---
 
-## Workflows (88 shipped)
+## Workflows (89 shipped)
 
 Full roster at `get-shit-done/workflows/*.md`. Workflows are thin orchestrators that commands reference internally; most are not read directly by end users. Rows below map each workflow file to its role (derived from the `<purpose>` block) and, where applicable, to the command that invokes it.
 
@@ -220,6 +221,7 @@ Full roster at `get-shit-done/workflows/*.md`. Workflows are thin orchestrators 
 | `node-repair.md` | Autonomous repair operator for failed task verification; invoked by `execute-plan`. | `execute-plan.md` (recovery) |
 | `note.md` | Zero-friction idea capture — one Write call, one confirmation line. | `/gsd-capture --note` |
 | `pause-work.md` | Create structured `.planning/HANDOFF.json` and `.continue-here.md` handoff files. | `/gsd-pause-work` |
+| `plan-brief.md` | Generate or check human-readable BRIEF.md companions derived from PLAN.md artifacts. | `/gsd-plan-brief`, `/gsd-plan-phase` |
 | `plan-phase.md` | Create executable PLAN.md files with integrated research and verification loop. | `/gsd-plan-phase`, `/gsd-quick` |
 | `plan-review-convergence.md` | Cross-AI plan convergence loop — replan with review feedback until no HIGH concerns remain. | `/gsd-plan-review-convergence` |
 | `plant-seed.md` | Capture a forward-looking idea as a structured seed file with trigger conditions. | `/gsd-capture --seed` |
@@ -359,7 +361,7 @@ The `gsd-planner` agent is decomposed into a core agent plus reference modules t
 
 ---
 
-## CLI Modules (55 shipped)
+## CLI Modules (56 shipped)
 
 Full listing: `get-shit-done/bin/lib/*.cjs`.
 
@@ -397,6 +399,7 @@ Full listing: `get-shit-done/bin/lib/*.cjs`.
 | `phase-command-router.cjs` | Thin CJS subcommand router adapter for `gsd-tools phase` |
 | `phase.cjs` | Phase directory operations, decimal numbering, plan indexing |
 | `phases-command-router.cjs` | Thin CJS subcommand router adapter for `gsd-tools phases` |
+| `plan-brief.cjs` | Deterministic BRIEF.md generation and source-plan hash freshness checks (`gsd-tools plan-brief`) |
 | `plan-scan.cjs` | Canonical phase-plan scanner — shared helper for detecting plan and summary files in flat and nested layouts (k014); consumed by state, roadmap, init, and workstream inventory paths |
 | `planning-workspace.cjs` | Planning path/workstream seam (`planningDir`, `planningPaths`, active-workstream routing, `.planning/.lock` orchestration) |
 | `profile-output.cjs` | Profile rendering, USER-PROFILE.md and dev-preferences.md generation |

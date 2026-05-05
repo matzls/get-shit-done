@@ -50,6 +50,7 @@ Evaluate `$ARGUMENTS` against these routing rules. Apply the **first matching** 
 | Discussing vision, "how should X look", brainstorming | `/gsd:discuss-phase` | Needs context gathering |
 | A complex task: refactoring, migration, multi-file architecture, system redesign | `/gsd:phase` | Needs a full phase with plan/build cycle |
 | Planning a specific phase or "plan phase N" | `/gsd:plan-phase` | Direct planning request |
+| Creating or checking human-readable plan briefs | `/gsd:plan-brief` | Derived plan explanation artifact |
 | Executing a phase or "build phase N", "run phase N" | `/gsd:execute-phase` | Direct execution request |
 | Running all remaining phases automatically | `/gsd:autonomous` | Full autonomous execution |
 | A review or quality concern about existing work | `/gsd:verify-work` | Needs verification |

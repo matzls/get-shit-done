@@ -30,6 +30,7 @@
  *   current-timestamp [format]         Get timestamp (full|date|filename)
  *   list-todos [area]                  Count and enumerate pending todos
  *   verify-path-exists <path>          Check file/directory existence
+ *   plan-brief <plan|phase> [--check] Generate/check human-readable PLAN companion
  *   config-ensure-section              Initialize .planning/config.json
  *   history-digest                     Aggregate all SUMMARY.md data
  *   summary-extract <path> [--fields]  Extract structured data from SUMMARY.md
@@ -191,6 +192,7 @@ const workstream = require('./lib/workstream.cjs');
 const docs = require('./lib/docs.cjs');
 const learnings = require('./lib/learnings.cjs');
 const gapChecker = require('./lib/gap-checker.cjs');
+const planBrief = require('./lib/plan-brief.cjs');
 const { routeStateCommand } = require('./lib/state-command-router.cjs');
 const { routeVerifyCommand } = require('./lib/verify-command-router.cjs');
 const { routeInitCommand } = require('./lib/init-command-router.cjs');
@@ -371,7 +373,7 @@ async function main() {
     'current-timestamp, detect-custom-files, docs-init, extract-messages, find-phase, ' +
     'from-gsd2, frontmatter, gap-analysis, generate-claude-md, generate-claude-profile, ' +
     'generate-dev-preferences, generate-slug, graphify, history-digest, init, intel, ' +
-    'learnings, list-todos, milestone, phase, phase-plan-index, phases, profile-questionnaire, ' +
+    'learnings, list-todos, milestone, phase, phase-plan-index, phases, plan-brief, profile-questionnaire, ' +
     'profile-sample, progress, requirements, resolve-model, roadmap, scaffold, state, ' +
     'template, validate, verify, verify-path-exists, verify-summary, workstream, worktree\n\n' +
     'Global flags:\n' +
@@ -561,6 +563,11 @@ async function runCommand(command, args, cwd, raw, defaultValue, originalCommand
       const countIndex = args.indexOf('--check-count');
       const checkCount = countIndex !== -1 ? parseInt(args[countIndex + 1], 10) : 2;
       verify.cmdVerifySummary(cwd, summaryPath, checkCount, raw);
+      break;
+    }
+
+    case 'plan-brief': {
+      planBrief.cmdPlanBrief(cwd, args, raw);
       break;
     }
 

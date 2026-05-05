@@ -1535,20 +1535,40 @@ gsd-sdk query roadmap.annotate-dependencies "${PHASE_NUMBER}"
 
 This operation is idempotent: if wave headers or cross-cutting constraints already exist in the ROADMAP phase section, the command returns without modifying the file. Skip this step if `plan_count` is 0.
 
-## 13d. Commit Plans if commit_docs is true
+## 13d. Generate Human-Readable Plan Briefs
+
+After plans are finalized and ROADMAP dependency annotations are applied,
+generate derived human-readable brief companions for every `*-PLAN.md` in the
+phase directory:
+
+```bash
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}"
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}" --check
+```
+
+This writes one sibling `*-BRIEF.md` per executable plan. Each brief records the
+LF-normalized SHA-256 `source_plan_hash` of its source plan so stale briefs are
+detectable without asking an LLM to compare documents. The PLAN.md remains the
+authoritative execution artifact; BRIEF.md is the human-readable companion.
+
+Skip this step only if `plan_count` is 0.
+
+## 13e. Commit Plans if commit_docs is true
 
 If `commit_docs` is true (from the init JSON parsed in step 1), commit the generated plan artifacts (including any ROADMAP.md annotations from step 13c):
 
 ```bash
-gsd-sdk query commit "docs(${PADDED_PHASE}): create phase plan" --files "${PHASE_DIR}"/*-PLAN.md .planning/STATE.md .planning/ROADMAP.md
+gsd-sdk query commit "docs(${PADDED_PHASE}): create phase plan" --files "${PHASE_DIR}"/*-PLAN.md "${PHASE_DIR}"/*-BRIEF.md .planning/STATE.md .planning/ROADMAP.md
 ```
 
-This commits all PLAN.md files for the phase plus the updated STATE.md and ROADMAP.md to version-control the planning artifacts. Skip this step if `commit_docs` is false.
+This commits all PLAN.md and BRIEF.md files for the phase plus the updated
+STATE.md and ROADMAP.md to version-control the planning artifacts. Skip this
+step if `commit_docs` is false.
 
-## 13e. Post-Planning Gap Analysis
+## 13f. Post-Planning Gap Analysis
 
-After all plans are generated, committed, and the Requirements Coverage Gate (§13)
-has run, emit a single unified gap report covering both REQUIREMENTS.md and the
+After all plans and briefs are generated, committed when configured, and the
+Requirements Coverage Gate (§13) has run, emit a single unified gap report covering both REQUIREMENTS.md and the
 CONTEXT.md `<decisions>` section. This is a **proactive, post-hoc report** — it
 does not block phase advancement and does not re-plan. It exists so that any
 requirement or decision that slipped through the per-plan checks is surfaced in
@@ -1693,6 +1713,7 @@ Verification: {Passed | Passed with override | Skipped}
 
 **Also available:**
 - cat .planning/phases/{phase-dir}/*-PLAN.md — review plans
+- cat .planning/phases/{phase-dir}/*-BRIEF.md — review human-readable plan briefs
 - /gsd:plan-phase {X} --research — re-research first
 - /gsd:review --phase {X} --all — peer review plans with external AIs
 - /gsd:plan-phase {X} --reviews — replan incorporating review feedback
