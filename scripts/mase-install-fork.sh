@@ -234,13 +234,21 @@ echo "Building hook assets from $repo_root"
 
 if [ "$scope" = "local" ]; then
   echo "Installing Mase fork branch '$branch' into $target for runtime '$runtime'"
-  (cd "$target" && node "$repo_root/bin/install.js" "$runtime_flag" --local "${extra_args[@]}")
+  if [ "${#extra_args[@]}" -gt 0 ]; then
+    (cd "$target" && node "$repo_root/bin/install.js" "$runtime_flag" --local "${extra_args[@]}")
+  else
+    (cd "$target" && node "$repo_root/bin/install.js" "$runtime_flag" --local)
+  fi
 else
   echo "Installing Mase fork branch '$branch' globally for runtime '$runtime'"
-  node "$repo_root/bin/install.js" "$runtime_flag" --global "${extra_args[@]}"
+  if [ "${#extra_args[@]}" -gt 0 ]; then
+    node "$repo_root/bin/install.js" "$runtime_flag" --global "${extra_args[@]}"
+  else
+    node "$repo_root/bin/install.js" "$runtime_flag" --global
+  fi
 fi
 
-if has_arg "--uninstall" "${extra_args[@]}" || has_arg "-u" "${extra_args[@]}"; then
+if [ "${#extra_args[@]}" -gt 0 ] && { has_arg "--uninstall" "${extra_args[@]}" || has_arg "-u" "${extra_args[@]}"; }; then
   remove_marker "$runtime_config_dir"
 else
   write_marker "$runtime_config_dir" "$mode" "$target_path" "$branch" "$commit_sha"
