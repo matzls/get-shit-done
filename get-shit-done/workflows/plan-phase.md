@@ -1616,6 +1616,31 @@ re-run `/gsd:plan-phase --gaps` to add plans, or proceed to execute-phase as-is.
 
 Route to `<offer_next>` OR `auto_advance` depending on flags/config.
 
+Before presenting the final status, collect created plan and brief artifact
+paths from `${PHASE_DIR}` and resolve them to absolute paths:
+
+```bash
+PLAN_FILES=$(ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null || true)
+BRIEF_FILES=$(ls "${PHASE_DIR}"/*-BRIEF.md 2>/dev/null || true)
+```
+
+Resolve each listed path with `node -e "process.stdout.write(require('path').resolve(process.argv[1]))" "$FILE"`.
+
+In the inline response, include a `Created/updated:` section that lists every
+PLAN.md and BRIEF.md artifact as a markdown file link using this exact shape:
+
+```markdown
+- [04-01-PLAN.md](/absolute/path/to/04-01-PLAN.md)
+- [04-01-BRIEF.md](/absolute/path/to/04-01-BRIEF.md)
+```
+
+Use the basename as the link label and the absolute file path as the markdown
+target. If the absolute path contains spaces, wrap only the markdown target in
+angle brackets: `[04-01-BRIEF.md](</absolute/path with spaces/04-01-BRIEF.md>)`.
+Do not wrap these links in backticks. The terminal TUI renders these markdown
+file links as clickable, so this section must include the generated `*-BRIEF.md`
+companions directly rather than only giving a `cat .../*-BRIEF.md` command.
+
 ## 15. Auto-Advance Check
 
 Check for auto-advance trigger using values already loaded in step 1:
@@ -1698,6 +1723,10 @@ Output this markdown directly (not as a code block):
 
 Research: {Completed | Used existing | Skipped}
 Verification: {Passed | Passed with override | Skipped}
+
+Created/updated:
+- [PLAN.md filename](/absolute/path/to/generated-PLAN.md)
+- [BRIEF.md filename](/absolute/path/to/generated-BRIEF.md)
 
 ───────────────────────────────────────────────────────────────
 

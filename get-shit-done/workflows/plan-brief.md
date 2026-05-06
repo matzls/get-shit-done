@@ -41,7 +41,11 @@ line endings normalized to LF.
 
 Print a concise result:
 - generated or checked count
-- produced `*-BRIEF.md` path(s)
+- produced `*-BRIEF.md` path(s) as markdown file links, using the basename as
+  the label and the absolute path as the target:
+  `[04-01-BRIEF.md](/absolute/path/to/04-01-BRIEF.md)`
+  If the absolute path contains spaces, wrap only the markdown target in angle
+  brackets: `[04-01-BRIEF.md](</absolute/path with spaces/04-01-BRIEF.md>)`.
 - stale or missing brief count when `--check` is used
 
 If a brief is stale, regenerate it with the same command without `--check`.

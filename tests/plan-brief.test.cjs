@@ -163,6 +163,9 @@ describe('gsd-tools plan-brief', () => {
     assert.match(workflow, /source_plan_hash/);
     assert.match(planPhase, /plan-brief "\$\{PHASE_DIR\}"/);
     assert.match(planPhase, /\*-BRIEF\.md/);
+    assert.match(planPhase, /\[04-01-BRIEF\.md\]\(\/absolute\/path\/to\/04-01-BRIEF\.md\)/);
+    assert.match(planPhase, /terminal TUI renders these\s+markdown\s+file links as clickable/);
+    assert.match(workflow, /\[04-01-BRIEF\.md\]\(\/absolute\/path\/to\/04-01-BRIEF\.md\)/);
     assert.match(registry, /NN-MM-BRIEF\.md/);
   });
 });
