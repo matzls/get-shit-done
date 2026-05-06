@@ -85,13 +85,16 @@ describe('gsd-tools plan-brief', () => {
     assert.equal(fm.canonicality, 'derived');
     assert.equal(fm.source_plan, '01-01-PLAN.md');
     assert.match(fm.source_plan_hash, /^sha256:[a-f0-9]{64}$/);
-    assert.equal(fm.brief_generator, 'gsd-plan-brief-v1.1');
+    assert.equal(fm.brief_generator, 'gsd-plan-brief-v1.2');
     assert.match(brief, /## Plain-English Goal/);
     assert.match(brief, /## Dependency Map/);
+    assert.match(brief, /## How The Flow Works/);
+    assert.match(brief, /## Flow Diagram/);
     assert.match(brief, /```mermaid/);
     assert.match(brief, /Add scanner wrapper/);
     assert.match(brief, /src\/scanner\.js/);
-    assert.doesNotMatch(brief, /route it to the existing scanner implementation/);
+    assert.match(brief, /route it to the existing scanner implementation/);
+    assert.match(brief, /`Add scanner wrapper` feeds `Add wrapper tests`/);
     assert.doesNotMatch(brief, /Create as/);
   });
 
@@ -113,7 +116,7 @@ describe('gsd-tools plan-brief', () => {
     const briefPath = path.join(project, '.planning/phases/01-baseline/01-01-BRIEF.md');
     fs.writeFileSync(
       briefPath,
-      fs.readFileSync(briefPath, 'utf8').replace('gsd-plan-brief-v1.1', 'gsd-plan-brief-v1'),
+      fs.readFileSync(briefPath, 'utf8').replace('gsd-plan-brief-v1.2', 'gsd-plan-brief-v1'),
       'utf8'
     );
     const generatorCheck = runGsdTools(['plan-brief', planRel, '--check'], project);
@@ -150,6 +153,26 @@ describe('gsd-tools plan-brief', () => {
       payload.briefs.map(item => path.basename(item.brief)),
       ['01-01-BRIEF.md', '01-02-BRIEF.md']
     );
+  });
+
+  test('mermaid diagrams sanitize config-style labels that contain markdown syntax', (t) => {
+    const project = createTempProject('gsd-plan-brief-mermaid-labels-');
+    t.after(() => cleanup(project));
+    const planRel = '.planning/phases/01-baseline/01-01-PLAN.md';
+    const plan = samplePlan().replace(
+      'via: "covered by"',
+      'via: "absolute command path in `[[hooks.Stop.hooks]]`"'
+    );
+    writePlan(project, planRel, plan);
+
+    const result = runGsdTools(['plan-brief', planRel], project);
+    assert.equal(result.success, true, result.error);
+    const brief = fs.readFileSync(path.join(project, '.planning/phases/01-baseline/01-01-BRIEF.md'), 'utf8');
+    const mermaidBlocks = [...brief.matchAll(/```mermaid\n([\s\S]*?)```/g)].map(match => match[1]).join('\n');
+
+    assert.match(mermaidBlocks, /absolute command path in hooks\.Stop\.hooks/);
+    assert.doesNotMatch(mermaidBlocks, /\[\[hooks\.Stop\.hooks\]\]/);
+    assert.doesNotMatch(mermaidBlocks, /`/);
   });
 
   test('command, workflow, registry, and plan-phase wiring document BRIEF.md artifacts', () => {

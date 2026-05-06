@@ -15,7 +15,7 @@ const {
 } = require('./core.cjs');
 const { extractFrontmatter, parseMustHavesBlock } = require('./frontmatter.cjs');
 
-const GENERATOR_ID = 'gsd-plan-brief-v1.1';
+const GENERATOR_ID = 'gsd-plan-brief-v1.2';
 
 function normalizeForHash(content) {
   return String(content || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -92,6 +92,32 @@ function trimSentence(value, maxLength = 180) {
   return `${trimmed}.`;
 }
 
+function truncateText(value, maxLength = 260) {
+  const text = compactText(value, '');
+  if (text.length <= maxLength) return text;
+  const clipped = text.slice(0, maxLength + 1);
+  const boundary = clipped.lastIndexOf(' ');
+  const trimmed = clipped.slice(0, boundary > 80 ? boundary : maxLength).replace(/[,\s]+$/g, '');
+  return `${trimmed}...`;
+}
+
+function takeSentences(value, maxSentences = 2, maxLength = 360) {
+  const text = compactText(value, '');
+  if (!text) return '';
+  const parts = splitSentences(text);
+  let picked = parts.slice(0, maxSentences).join(' ').trim();
+  if (!picked) picked = text;
+  if (picked.length <= maxLength) return picked;
+  return trimSentence(picked, maxLength);
+}
+
+function splitSentences(value) {
+  return compactText(value, '')
+    .split(/(?<=[.!?])\s+(?=[`"']?[A-Z])/)
+    .map(sentence => sentence.trim())
+    .filter(Boolean);
+}
+
 function titleAsAction(title) {
   const cleanTitle = cleanTaskTitle(title, 'Complete the planned task.');
   return trimSentence(sentenceCase(cleanTitle));
@@ -157,6 +183,11 @@ function mermaidLabel(value) {
   return String(value || 'unspecified')
     .replace(/\\/g, '/')
     .replace(/"/g, "'")
+    .replace(/`/g, '')
+    .replace(/\[\[/g, '')
+    .replace(/\]\]/g, '')
+    .replace(/[\[\]{}<>]/g, '')
+    .replace(/\|/g, '/')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 80);
@@ -193,6 +224,133 @@ function dependencyMermaid(keyLinks, tasks) {
   return lines.join('\n');
 }
 
+function isRuntimeLink(link) {
+  const via = compactText(link && (link.via || link.provides || link.pattern), '').toLowerCase();
+  const to = compactText(link && (link.to || link.target), '').toLowerCase();
+  return !(
+    /\b(test|tests|spec|coverage|covered by|assert|verif|proof)\b/.test(via) ||
+    /\b(test|tests|spec)\b/.test(to)
+  );
+}
+
+function flowMermaid(keyLinks, tasks) {
+  const runtimeLinks = keyLinks.filter(isRuntimeLink);
+  const lines = ['```mermaid', 'flowchart TD'];
+  if (runtimeLinks.length > 0) {
+    const ids = new Map();
+    const idFor = (label) => {
+      const key = mermaidLabel(label);
+      if (!ids.has(key)) ids.set(key, `S${ids.size + 1}`);
+      return ids.get(key);
+    };
+    const incoming = new Set();
+    const outgoing = new Set();
+    for (const link of runtimeLinks) {
+      if (!link || typeof link !== 'object') continue;
+      const from = link.from || link.source || 'source plan';
+      const to = link.to || link.target || 'planned artifact';
+      const via = link.via || link.provides || 'hands off';
+      const fromId = idFor(from);
+      const toId = idFor(to);
+      outgoing.add(fromId);
+      incoming.add(toId);
+      lines.push(`  ${fromId}["${mermaidLabel(from)}"] -->|${mermaidLabel(via)}| ${toId}["${mermaidLabel(to)}"]`);
+    }
+    const startIds = [...outgoing].filter(id => !incoming.has(id));
+    if (startIds.length > 0) {
+      lines.splice(2, 0, `  Start(["Start"]) --> ${startIds[0]}`);
+    }
+  } else if (tasks.length > 0) {
+    lines.push('  Start(["Start"])');
+    tasks.forEach((task, index) => {
+      const id = `T${index + 1}`;
+      lines.push(`  ${id}["${mermaidLabel(cleanTaskTitle(task.title, task.id))}"]`);
+      lines.push(index === 0 ? `  Start --> ${id}` : `  T${index} --> ${id}`);
+    });
+  } else {
+    lines.push('  Start(["Source PLAN.md"]) --> Brief["Human-readable brief"]');
+  }
+  lines.push('```');
+  return lines.join('\n');
+}
+
+function flowLinkSentence(link) {
+  const from = compactText(link.from || link.source || 'the starting component', '');
+  const to = compactText(link.to || link.target || 'the next component', '');
+  const via = compactText(link.via || link.provides || 'hands off control', '');
+  if (!from || !to) return '';
+  return `- \`${from}\` hands off to \`${to}\`${via ? ` via ${via}` : ''}.`;
+}
+
+function taskDetailSentence(task, index) {
+  const title = cleanTaskTitle(task.title, `Task ${index + 1}`);
+  const action = takeSentences(
+    sentenceCase(task.action)
+      .replace(/with tests named exactly:[\s\S]*?Tests must/i, 'with named safety tests. Tests must')
+      .replace(/Implement pure helpers for testability:[\s\S]*?Source validation/i, 'Implement pure testable helpers. Source validation'),
+    2,
+    380
+  );
+  const done = trimSentence(sentenceCase(task.done), 220);
+  const parts = [`- **${title}:** ${action}`];
+  if (done && done !== 'Not specified in source plan.') {
+    parts.push(`Done when ${done.charAt(0).toLowerCase()}${done.slice(1)}`);
+  }
+  return parts.join(' ');
+}
+
+function flowExplanation(tasks, keyLinks) {
+  const runtimeLinks = keyLinks.filter(isRuntimeLink);
+  const lines = [];
+  lines.push('Read this as the implementation/runtime story behind the plan: what gets built first, what calls what, and where responsibility moves.');
+  lines.push('');
+  lines.push('**Build order:**');
+  if (tasks.length > 0) {
+    tasks.forEach((task, index) => lines.push(taskDetailSentence(task, index)));
+  } else {
+    lines.push('- Not specified in source plan.');
+  }
+  lines.push('');
+  lines.push('**Runtime hand-off:**');
+  const linkLines = runtimeLinks.map(flowLinkSentence).filter(Boolean);
+  if (linkLines.length > 0) {
+    lines.push(...linkLines);
+  } else if (tasks.length > 0) {
+    tasks.forEach((task, index) => {
+      const title = cleanTaskTitle(task.title, `Task ${index + 1}`);
+      const next = tasks[index + 1] ? cleanTaskTitle(tasks[index + 1].title, `Task ${index + 2}`) : '';
+      lines.push(next ? `- \`${title}\` feeds \`${next}\`.` : `- \`${title}\` completes the planned flow.`);
+    });
+  } else {
+    lines.push('- Not specified in source plan.');
+  }
+  return lines.join('\n');
+}
+
+function extractNonGoals(content) {
+  const nonGoals = [];
+  const seen = new Set();
+  const body = String(content || '').replace(/^---[\s\S]*?\n---\s*/m, '');
+  for (const rawLine of body.split(/\r?\n/)) {
+    const line = compactText(rawLine.replace(/^\s*[-*]\s*/, ''), '');
+    if (!line || /^(phase|plan|type|wave|depends_on|files_modified|requirements):/i.test(line)) continue;
+    if (/\b(rg -n|pytest|assert\.|expect\(|grep)\b/i.test(line)) continue;
+    for (const sentence of splitSentences(line)) {
+      if (!/\b(does not|do not|must not|not as|not import|not call|not write|not include|not planned|not touch)\b/i.test(sentence)) {
+        continue;
+      }
+      const clean = truncateText(sentence, 260);
+      const key = clean.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      nonGoals.push(clean);
+      break;
+    }
+    if (nonGoals.length >= 6) break;
+  }
+  return nonGoals;
+}
+
 function makeTitle(planPath, frontmatter) {
   const planId = path.basename(planPath).replace(/-PLAN\.md$/i, '');
   const phase = frontmatter.phase ? `Phase ${frontmatter.phase}` : 'Plan';
@@ -209,6 +367,7 @@ function generateBrief(planPath, content, opts = {}) {
   const filesModified = listValue(fm.files_modified);
   const dependencies = listValue(fm.depends_on);
   const objective = compactText(extractXmlBlock(content, 'objective'));
+  const nonGoals = extractNonGoals(content);
   const title = makeTitle(planPath, fm);
   const relSource = './' + path.basename(planPath);
   const hash = sourcePlanHash(content);
@@ -266,13 +425,21 @@ function generateBrief(planPath, content, opts = {}) {
     '',
     dependencyMermaid(keyLinks, tasks),
     '',
+    '## How The Flow Works',
+    '',
+    flowExplanation(tasks, keyLinks),
+    '',
+    '## Flow Diagram',
+    '',
+    flowMermaid(keyLinks, tasks),
+    '',
     '## Task Summary',
     '',
     markdownTable(['Task', 'Outcome', 'Plain-English Work'], taskRows),
     '',
     '## What This Does Not Do',
     '',
-    '- Not specified in source plan.',
+    bulletList(nonGoals),
     '',
     '## Success Looks Like',
     '',

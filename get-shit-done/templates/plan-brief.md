@@ -9,7 +9,7 @@ updated: {{date}}
 source_of_truth: "./{{plan_id}}-PLAN.md"
 source_plan: "{{plan_id}}-PLAN.md"
 source_plan_hash: "sha256:{{source_plan_hash}}"
-brief_generator: "gsd-plan-brief-v1.1"
+brief_generator: "gsd-plan-brief-v1.2"
 ---
 
 # Plan Brief: {{plan_id}}
@@ -27,6 +27,14 @@ brief_generator: "gsd-plan-brief-v1.1"
 ## Dependency Map
 
 {{dependency_map}}
+
+## How The Flow Works
+
+{{flow_explanation}}
+
+## Flow Diagram
+
+{{flow_diagram}}
 
 ## Task Summary
 
