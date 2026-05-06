@@ -1,0 +1,49 @@
+{
+  "schema_version": "peer-review-v1",
+  "review_id": "peer-review-65252eea22fd",
+  "plan_path": "/Users/mase/Codebase/Personal-Projects/get-shit-done/.codex/skills/gsd-fork-propagate/SKILL.md",
+  "plan_sha256": "b24c441b68af486bf2c9c1c7d740f560aa44233a96bb6c2b3c14e0927b179bfb",
+  "mode": "artifact-review",
+  "sidecar_dir": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_doc-reviews",
+  "engine": "GPT",
+  "requested_engine": "codex",
+  "origin_runtime": "codex",
+  "engine_policy": "explicit",
+  "resolved_primary_engine": "codex",
+  "preferred_engine": "codex",
+  "fallback_engine": null,
+  "final_engine": "codex",
+  "reviewer_match": "same_model_fallback",
+  "gate_quality": "preferred",
+  "artifact_role": "diagnostic",
+  "canonical_sidecar_path": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_doc-reviews/SKILL-peer-review.json",
+  "fallback_used": false,
+  "fallback_reason": null,
+  "attempt_chain": [
+    {
+      "engine": "codex",
+      "phase": "primary",
+      "result": "process_failure",
+      "returncode": 1,
+      "error": "WARNING: proceeding, even though we could not update PATH: Operation not permitted (os error 1)\nReading additional input from stdin...\n2026-05-06T07:22:49.568661Z ERROR codex_core::session: Failed to create session: Operation not permitted (os error 1)\nError: thread/start: thread/start failed: error creating thread: Fatal error: Codex cannot access session files at /Users/mase/.codex/sessions (permission denied). If sessions were created using sudo, fix ownership: sudo chown -R $(whoami) /Users/mase/.codex (underlying error: Operation not permitted (os error 1))"
+    }
+  ],
+  "review_round": 1,
+  "max_rounds": 3,
+  "prior_review_id": "None",
+  "caller_disposition_summary": "",
+  "addressed_issues": [],
+  "deferred_issues": [],
+  "recheck_requests": [],
+  "model": "codex",
+  "verdict": "Failed-to-run",
+  "issues_count": 0,
+  "ran_at": "2026-05-06T07:22:50.329355+00:00",
+  "raw_review_excerpt": "WARNING: proceeding, even though we could not update PATH: Operation not permitted (os error 1)\nReading additional input from stdin...\n2026-05-06T07:22:49.568661Z ERROR codex_core::session: Failed to create session: Operation not permitted (os error 1)\nError: thread/start: thread/start failed: error creating thread: Fatal error: Codex cannot access session files at /Users/mase/.codex/sessions (permission denied). If sessions were created using sudo, fix ownership: sudo chown -R $(whoami) /Users/mase/.codex (underlying error: Operation not permitted (os error 1))",
+  "error": "WARNING: proceeding, even though we could not update PATH: Operation not permitted (os error 1)\nReading additional input from stdin...\n2026-05-06T07:22:49.568661Z ERROR codex_core::session: Failed to create session: Operation not permitted (os error 1)\nError: thread/start: thread/start failed: error creating thread: Fatal error: Codex cannot access session files at /Users/mase/.codex/sessions (permission denied). If sessions were created using sudo, fix ownership: sudo chown -R $(whoami) /Users/mase/.codex (underlying error: Operation not permitted (os error 1))",
+  "failure_family": "process_failure",
+  "recovery_steps": [
+    "Peer review failed to run (Codex). Recovery: verify Codex auth/runtime health and retry with a narrower focus if needed."
+  ],
+  "next_action": "Peer review failed to run (Codex). Recovery: verify Codex auth/runtime health and retry with a narrower focus if needed."
+}

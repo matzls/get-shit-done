@@ -1,0 +1,57 @@
+{
+  "schema_version": "peer-review-v1",
+  "review_id": "peer-review-1b9201051d56",
+  "plan_path": "/Users/mase/Codebase/Personal-Projects/get-shit-done/.codex/skills/gsd-fork-propagate/SKILL.md",
+  "plan_sha256": "b24c441b68af486bf2c9c1c7d740f560aa44233a96bb6c2b3c14e0927b179bfb",
+  "mode": "artifact-review",
+  "sidecar_dir": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_doc-reviews",
+  "engine": "Claude",
+  "requested_engine": "claude",
+  "origin_runtime": "codex",
+  "engine_policy": "explicit",
+  "resolved_primary_engine": "claude",
+  "preferred_engine": "claude",
+  "fallback_engine": null,
+  "final_engine": "claude",
+  "reviewer_match": "opposite",
+  "gate_quality": "preferred",
+  "artifact_role": "diagnostic",
+  "canonical_sidecar_path": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_doc-reviews/SKILL-peer-review.json",
+  "fallback_used": false,
+  "fallback_reason": null,
+  "attempt_chain": [
+    {
+      "engine": "claude",
+      "phase": "primary",
+      "attempt": 1,
+      "timeout_seconds": 300,
+      "result": "completed",
+      "elapsed_seconds": 0.914,
+      "returncode": 0
+    }
+  ],
+  "review_round": 1,
+  "max_rounds": 3,
+  "prior_review_id": "None",
+  "caller_disposition_summary": "",
+  "addressed_issues": [],
+  "deferred_issues": [],
+  "recheck_requests": [],
+  "model": "claude-opus-4-6",
+  "verdict": "Failed-to-run",
+  "issues_count": 0,
+  "ran_at": "2026-05-06T07:22:40.867630+00:00",
+  "raw_review_excerpt": "",
+  "error": "structured_output_missing",
+  "failure_family": "structured_output_missing",
+  "recovery_steps": [
+    "Peer review failed (structured output missing). Recovery: retry once."
+  ],
+  "stop_guidance": [
+    "- Run `python3 \"/Users/mase/.codex/skills/my-peer-review/scripts/run_claude_peer_review.py\" --plan-path \"/Users/mase/Codebase/Personal-Projects/get-shit-done/.codex/skills/gsd-fork-propagate/SKILL.md\" --mode artifact-review --check-only` to confirm the current sidecar state.",
+    "- Safe next step: fix the plan and rerun one clean peer review.",
+    "- If Claude remains unreliable here, switch explicitly to `--engine codex`.",
+    "- Only skip peer review if the user explicitly approves bypassing that gate."
+  ],
+  "next_action": "- Run `python3 \"/Users/mase/.codex/skills/my-peer-review/scripts/run_claude_peer_review.py\" --plan-path \"/Users/mase/Codebase/Personal-Projects/get-shit-done/.codex/skills/gsd-fork-propagate/SKILL.md\" --mode artifact-review --check-only` to confirm the current sidecar state."
+}
