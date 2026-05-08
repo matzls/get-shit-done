@@ -22,7 +22,7 @@ import { homedir } from 'node:os';
 import { MODEL_PROFILES } from './config-query.js';
 import { GSDError, ErrorClassification } from '../errors.js';
 import { extractFrontmatter, parseMustHavesBlock } from './frontmatter.js';
-import { escapeRegex, normalizePhaseName, planningPaths, resolvePathUnderProject } from './helpers.js';
+import { escapeRegex, expectedAgentsForAgentsDir, normalizePhaseName, planningPaths, resolvePathUnderProject } from './helpers.js';
 import type { QueryHandler } from './utils.js';
 import { resolveBundledAgentsDir } from '../sdk-package-compatibility.js';
 
@@ -800,7 +800,7 @@ function getAgentsDirForValidateAgents(): string {
  */
 export const validateAgents: QueryHandler = async (_args, _projectDir) => {
   const agentsDir = getAgentsDirForValidateAgents();
-  const expected = Object.keys(MODEL_PROFILES);
+  const { install_mode: installMode, expected_agents: expected } = expectedAgentsForAgentsDir(agentsDir, Object.keys(MODEL_PROFILES));
   const installed: string[] = [];
   const missing: string[] = [];
 
@@ -808,6 +808,7 @@ export const validateAgents: QueryHandler = async (_args, _projectDir) => {
     return {
       data: {
         agents_dir: agentsDir,
+        install_mode: installMode,
         agents_found: false,
         installed: [] as string[],
         missing: expected,
@@ -830,6 +831,7 @@ export const validateAgents: QueryHandler = async (_args, _projectDir) => {
   return {
     data: {
       agents_dir: agentsDir,
+      install_mode: installMode,
       agents_found: agentsInstalled,
       installed,
       missing,

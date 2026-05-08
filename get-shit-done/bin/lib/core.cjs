@@ -8,6 +8,7 @@ const path = require('path');
 const { execSync, execFileSync, spawnSync } = require('child_process');
 const { MODEL_PROFILES, AGENT_TO_PHASE_TYPE, VALID_PHASE_TYPES, AGENT_DEFAULT_TIERS, VALID_AGENT_TIERS, nextTier } = require('./model-profiles.cjs');
 const { MODEL_ALIAS_MAP, RUNTIME_PROFILE_MAP, KNOWN_RUNTIMES, RUNTIMES_WITH_REASONING_EFFORT } = require('./model-catalog.cjs');
+const { detectInstallModeForAgentsDir, expectedAgentsForMode } = require('./install-profiles.cjs');
 const {
   resolveWorktreeContext,
   parseWorktreePorcelain: parseWorktreePorcelainPolicy,
@@ -1253,7 +1254,8 @@ function getAgentsDir() {
  */
 function checkAgentsInstalled() {
   const agentsDir = getAgentsDir();
-  const expectedAgents = Object.keys(MODEL_PROFILES);
+  const installMode = detectInstallModeForAgentsDir(agentsDir);
+  const expectedAgents = expectedAgentsForMode(installMode, Object.keys(MODEL_PROFILES));
   const installed = [];
   const missing = [];
 
@@ -1263,6 +1265,8 @@ function checkAgentsInstalled() {
       missing_agents: expectedAgents,
       installed_agents: [],
       agents_dir: agentsDir,
+      install_mode: installMode,
+      expected_agents: expectedAgents,
     };
   }
 
@@ -1282,6 +1286,8 @@ function checkAgentsInstalled() {
     missing_agents: missing,
     installed_agents: installed,
     agents_dir: agentsDir,
+    install_mode: installMode,
+    expected_agents: expectedAgents,
   };
 }
 

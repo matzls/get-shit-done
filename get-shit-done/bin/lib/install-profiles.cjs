@@ -12,7 +12,8 @@
  * The `minimal` profile installs the main GSD loop:
  *   new-project → discuss-phase → plan-phase → execute-phase
  * plus `help` (discoverability) and `update` (upgrade path). It also installs
- * only the subagents those minimal skills mention or spawn.
+ * only the subagents those minimal skills directly invoke or load as agent
+ * prompt files.
  *
  * Users opt into minimal via `--minimal` on the install CLI.
  * Default install (`full`) is unchanged — back-compat preserved.
@@ -35,10 +36,7 @@ const MINIMAL_AGENT_ALLOWLIST = Object.freeze([
   'gsd-advisor-researcher',
   'gsd-assumptions-analyzer',
   'gsd-codebase-mapper',
-  'gsd-debugger',
   'gsd-executor',
-  'gsd-integration-checker',
-  'gsd-nyquist-auditor',
   'gsd-pattern-mapper',
   'gsd-phase-researcher',
   'gsd-plan-checker',
@@ -46,9 +44,6 @@ const MINIMAL_AGENT_ALLOWLIST = Object.freeze([
   'gsd-project-researcher',
   'gsd-research-synthesizer',
   'gsd-roadmapper',
-  'gsd-ui-auditor',
-  'gsd-ui-checker',
-  'gsd-ui-researcher',
   'gsd-verifier',
 ]);
 
@@ -67,6 +62,21 @@ function shouldInstallSkill(skillBaseName, mode) {
 function shouldInstallAgent(agentName, mode) {
   if (!isMinimalMode(mode)) return true;
   return MINIMAL_AGENT_ALLOWLIST_SET.has(agentName);
+}
+
+function detectInstallModeForAgentsDir(agentsDir) {
+  const manifestPath = path.join(path.dirname(agentsDir), 'gsd-file-manifest.json');
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    return manifest && manifest.mode === 'minimal' ? 'minimal' : 'full';
+  } catch {
+    return 'full';
+  }
+}
+
+function expectedAgentsForMode(mode, allAgents) {
+  if (isMinimalMode(mode)) return [...MINIMAL_AGENT_ALLOWLIST];
+  return [...allAgents];
 }
 
 // Stage dirs created during this process — cleaned up on exit.
@@ -157,6 +167,8 @@ module.exports = {
   isMinimalMode,
   shouldInstallSkill,
   shouldInstallAgent,
+  detectInstallModeForAgentsDir,
+  expectedAgentsForMode,
   stageSkillsForMode,
   cleanupStagedSkills,
 };

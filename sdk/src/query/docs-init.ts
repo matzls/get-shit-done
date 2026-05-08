@@ -18,7 +18,7 @@ import { join, relative } from 'node:path';
 
 import { loadConfig } from '../config.js';
 import { MODEL_PROFILES, resolveModel } from './config-query.js';
-import { detectRuntime, resolveAgentsDir, toPosixPath } from './helpers.js';
+import { detectRuntime, expectedAgentsForAgentsDir, resolveAgentsDir, toPosixPath } from './helpers.js';
 import type { QueryHandler } from './utils.js';
 
 const GSD_MARKER = '<!-- generated-by: gsd-doc-writer -->';
@@ -207,7 +207,7 @@ export function detectMonorepoWorkspaces(cwd: string): string[] {
 function checkAgentsInstalled(config?: { runtime?: unknown }): { agents_installed: boolean; missing_agents: string[] } {
   const runtime = detectRuntime(config);
   const agentsDir = resolveAgentsDir(runtime);
-  const expectedAgents = Object.keys(MODEL_PROFILES);
+  const { expected_agents: expectedAgents } = expectedAgentsForAgentsDir(agentsDir, Object.keys(MODEL_PROFILES));
 
   if (!existsSync(agentsDir)) {
     return { agents_installed: false, missing_agents: expectedAgents };

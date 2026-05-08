@@ -1153,16 +1153,15 @@ function cmdValidateHealth(cwd, options, raw) {
  * Returns detailed information about which agents are installed and which are missing.
  */
 function cmdValidateAgents(cwd, raw) {
-  const { MODEL_PROFILES } = require('./model-profiles.cjs');
   const agentStatus = checkAgentsInstalled();
-  const expected = Object.keys(MODEL_PROFILES);
 
   output({
     agents_dir: agentStatus.agents_dir,
+    install_mode: agentStatus.install_mode,
     agents_found: agentStatus.agents_installed,
     installed: agentStatus.installed_agents,
     missing: agentStatus.missing_agents,
-    expected,
+    expected: agentStatus.expected_agents,
   }, raw);
 }
 

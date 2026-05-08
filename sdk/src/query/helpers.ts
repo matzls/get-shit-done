@@ -21,12 +21,19 @@ import { join, dirname, relative, resolve, isAbsolute, normalize, parse as parse
 import { realpath } from 'node:fs/promises';
 import { existsSync, statSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { createRequire } from 'node:module';
 import { GSDError, ErrorClassification } from '../errors.js';
 export { SUPPORTED_RUNTIMES, type Runtime } from '../model-catalog.js';
 import { SUPPORTED_RUNTIMES, type Runtime } from '../model-catalog.js';
 import { workspacePlanningPaths, resolveWorkspaceContext, type PlanningPaths } from './workspace.js';
 export { stateExtractField } from './state-document.js';
 import { relPlanningPath, validateWorkstreamName } from '../workstream-utils.js';
+
+const require = createRequire(import.meta.url);
+const installProfiles = require('../../../get-shit-done/bin/lib/install-profiles.cjs') as {
+  MINIMAL_AGENT_ALLOWLIST: readonly string[];
+  isMinimalMode: (mode: unknown) => boolean;
+};
 
 // ─── Runtime-aware agents directory resolution ─────────────────────────────
 
@@ -170,6 +177,29 @@ export function renderGlobalSkillDisplayPath(runtime: Runtime, skillName: string
   const home = homedir();
   const homeWithSep = home.endsWith(pathSep) ? home : `${home}${pathSep}`;
   return (dir === home || dir.startsWith(homeWithSep)) ? `~${dir.slice(home.length)}` : dir;
+}
+
+export function detectInstallModeForAgentsDir(agentsDir: string): 'minimal' | 'full' {
+  const manifestPath = join(dirname(agentsDir), 'gsd-file-manifest.json');
+  try {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { mode?: unknown };
+    return manifest.mode === 'minimal' ? 'minimal' : 'full';
+  } catch {
+    return 'full';
+  }
+}
+
+export function expectedAgentsForMode(mode: unknown, allAgents: string[]): string[] {
+  if (installProfiles.isMinimalMode(mode)) return [...installProfiles.MINIMAL_AGENT_ALLOWLIST];
+  return [...allAgents];
+}
+
+export function expectedAgentsForAgentsDir(agentsDir: string, allAgents: string[]): { install_mode: 'minimal' | 'full'; expected_agents: string[] } {
+  const installMode = detectInstallModeForAgentsDir(agentsDir);
+  return {
+    install_mode: installMode,
+    expected_agents: expectedAgentsForMode(installMode, allAgents),
+  };
 }
 
 // ─── Types ──────────────────────────────────────────────────────────────────

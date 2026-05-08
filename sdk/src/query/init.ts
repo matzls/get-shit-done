@@ -28,7 +28,7 @@ import { resolveModel, MODEL_PROFILES } from './config-query.js';
 import { maskIfSecret } from './secrets.js';
 import { findPhase } from './phase.js';
 import { roadmapGetPhase, getMilestoneInfo, extractCurrentMilestone, extractPhasesFromSection } from './roadmap.js';
-import { planningPaths, normalizePhaseName, toPosixPath, resolveAgentsDir, detectRuntime } from './helpers.js';
+import { planningPaths, normalizePhaseName, toPosixPath, resolveAgentsDir, detectRuntime, expectedAgentsForAgentsDir } from './helpers.js';
 import { generatePhaseSlug, assertSafeProjectCode } from './phase-lifecycle-policy.js';
 import type { QueryHandler } from './utils.js';
 
@@ -129,7 +129,7 @@ function getLatestCompletedMilestone(projectDir: string): { version: string; nam
 function checkAgentsInstalled(config?: { runtime?: unknown }): { agents_installed: boolean; missing_agents: string[] } {
   const runtime = detectRuntime(config);
   const agentsDir = resolveAgentsDir(runtime);
-  const expectedAgents = Object.keys(MODEL_PROFILES);
+  const { expected_agents: expectedAgents } = expectedAgentsForAgentsDir(agentsDir, Object.keys(MODEL_PROFILES));
 
   if (!existsSync(agentsDir)) {
     return { agents_installed: false, missing_agents: expectedAgents };

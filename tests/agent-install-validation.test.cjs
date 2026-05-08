@@ -16,6 +16,7 @@ const { runGsdTools, createTempProject, cleanup } = require('./helpers.cjs');
 const AGENTS_DIR_NAME = 'agents';
 const MODEL_PROFILES = require('../get-shit-done/bin/lib/model-profiles.cjs').MODEL_PROFILES;
 const EXPECTED_AGENTS = Object.keys(MODEL_PROFILES);
+const { MINIMAL_AGENT_ALLOWLIST } = require('../get-shit-done/bin/lib/install-profiles.cjs');
 
 /**
  * Create a fake GSD install directory structure that mirrors what the installer
@@ -252,6 +253,41 @@ describe('checkAgentsInstalled: Copilot .agent.md format (#1512)', () => {
     // The custom dir path should be reported
     assert.strictEqual(output.agents_dir, customAgentsDir,
       'agents_dir must reflect GSD_AGENTS_DIR override');
+  });
+
+  test('minimal install manifest validates against the minimal agent set', () => {
+    const agentsDir = createAgentsDir(tmpDir, MINIMAL_AGENT_ALLOWLIST);
+    fs.writeFileSync(
+      path.join(tmpDir, 'gsd-file-manifest.json'),
+      JSON.stringify({ mode: 'minimal', files: {} }, null, 2),
+    );
+
+    const result = runGsdTools('init new-workspace --raw', tmpDir, { GSD_AGENTS_DIR: agentsDir });
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.agents_installed, true,
+      'minimal installs should be healthy when every minimal agent is present');
+    assert.deepStrictEqual(output.missing_agents, [],
+      'minimal installs must not require full-install-only agents');
+  });
+
+  test('minimal install manifest reports missing minimal agents only', () => {
+    const installed = MINIMAL_AGENT_ALLOWLIST.filter((name) => name !== 'gsd-executor');
+    const agentsDir = createAgentsDir(tmpDir, installed);
+    fs.writeFileSync(
+      path.join(tmpDir, 'gsd-file-manifest.json'),
+      JSON.stringify({ mode: 'minimal', files: {} }, null, 2),
+    );
+
+    const result = runGsdTools('validate agents --raw', tmpDir, { GSD_AGENTS_DIR: agentsDir });
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.install_mode, 'minimal');
+    assert.strictEqual(output.agents_found, false);
+    assert.deepStrictEqual(output.missing, ['gsd-executor']);
+    assert.deepStrictEqual([...output.expected].sort(), [...MINIMAL_AGENT_ALLOWLIST].sort());
   });
 });
 

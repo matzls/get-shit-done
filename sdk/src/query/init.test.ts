@@ -9,6 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, writeFile, mkdir, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { createRequire } from 'node:module';
 import {
   withProjectRoot,
   initExecutePhase,
@@ -26,6 +27,11 @@ import {
   initRemoveWorkspace,
   initIngestDocs,
 } from './init.js';
+
+const require = createRequire(import.meta.url);
+const { MINIMAL_AGENT_ALLOWLIST } = require('../../../get-shit-done/bin/lib/install-profiles.cjs') as {
+  MINIMAL_AGENT_ALLOWLIST: readonly string[];
+};
 
 let tmpDir: string;
 
@@ -128,6 +134,29 @@ describe('withProjectRoot', () => {
     for (const name of Object.keys(MODEL_PROFILES)) {
       await writeFile(join(agentsDir, `${name}.md`), '# stub');
     }
+    const prev = process.env.GSD_AGENTS_DIR;
+    process.env.GSD_AGENTS_DIR = agentsDir;
+    try {
+      const enriched = withProjectRoot(tmpDir, {});
+      expect(enriched.agents_installed).toBe(true);
+      expect(enriched.missing_agents).toEqual([]);
+    } finally {
+      if (prev === undefined) delete process.env.GSD_AGENTS_DIR;
+      else process.env.GSD_AGENTS_DIR = prev;
+    }
+  });
+
+  it('reports agents_installed: true for a complete minimal install manifest', async () => {
+    const installDir = join(tmpDir, 'minimal-install');
+    const agentsDir = join(installDir, 'agents');
+    await mkdir(agentsDir, { recursive: true });
+    for (const name of MINIMAL_AGENT_ALLOWLIST) {
+      await writeFile(join(agentsDir, `${name}.md`), '# stub');
+    }
+    await writeFile(
+      join(installDir, 'gsd-file-manifest.json'),
+      JSON.stringify({ mode: 'minimal', files: {} }, null, 2),
+    );
     const prev = process.env.GSD_AGENTS_DIR;
     process.env.GSD_AGENTS_DIR = agentsDir;
     try {

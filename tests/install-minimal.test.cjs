@@ -7,7 +7,8 @@
  *
  * Verifies:
  *   1. The install-profiles allowlists contain exactly the documented core
- *      main-loop skills and the agents those skills mention/spawn.
+ *      main-loop skills and the agents those skills directly invoke or load
+ *      as agent prompt files.
  *   2. stageSkillsForMode() filters source dir entries to the allowlist when
  *      mode === 'minimal' and is a no-op for mode === 'full'.
  *   3. Filtering is by basename (mirrors how copyCommandsAs*Skills derives
@@ -70,17 +71,14 @@ describe('install-profiles: MINIMAL_SKILL_ALLOWLIST', () => {
 });
 
 describe('install-profiles: MINIMAL_AGENT_ALLOWLIST', () => {
-  test('contains exactly the agents required or mentioned by the minimal skills', () => {
+  test('contains exactly the agents directly required by the minimal skills', () => {
     assert.deepStrictEqual(
       [...MINIMAL_AGENT_ALLOWLIST].sort(),
       [
         'gsd-advisor-researcher',
         'gsd-assumptions-analyzer',
         'gsd-codebase-mapper',
-        'gsd-debugger',
         'gsd-executor',
-        'gsd-integration-checker',
-        'gsd-nyquist-auditor',
         'gsd-pattern-mapper',
         'gsd-phase-researcher',
         'gsd-plan-checker',
@@ -88,11 +86,53 @@ describe('install-profiles: MINIMAL_AGENT_ALLOWLIST', () => {
         'gsd-project-researcher',
         'gsd-research-synthesizer',
         'gsd-roadmapper',
-        'gsd-ui-auditor',
-        'gsd-ui-checker',
-        'gsd-ui-researcher',
         'gsd-verifier',
       ],
+    );
+  });
+
+  test('matches concrete subagent invocations in the installed minimal workflow closure', () => {
+    const repoRoot = path.join(__dirname, '..');
+    const files = [
+      'commands/gsd/new-project.md',
+      'commands/gsd/discuss-phase.md',
+      'commands/gsd/plan-phase.md',
+      'commands/gsd/execute-phase.md',
+      'commands/gsd/help.md',
+      'commands/gsd/update.md',
+      'get-shit-done/workflows/new-project.md',
+      'get-shit-done/workflows/discuss-phase.md',
+      'get-shit-done/workflows/discuss-phase-assumptions.md',
+      'get-shit-done/workflows/discuss-phase-power.md',
+      'get-shit-done/workflows/discuss-phase/modes/advisor.md',
+      'get-shit-done/workflows/discuss-phase/modes/all.md',
+      'get-shit-done/workflows/discuss-phase/modes/analyze.md',
+      'get-shit-done/workflows/discuss-phase/modes/auto.md',
+      'get-shit-done/workflows/discuss-phase/modes/batch.md',
+      'get-shit-done/workflows/discuss-phase/modes/chain.md',
+      'get-shit-done/workflows/discuss-phase/modes/default.md',
+      'get-shit-done/workflows/discuss-phase/modes/power.md',
+      'get-shit-done/workflows/discuss-phase/modes/text.md',
+      'get-shit-done/workflows/plan-phase.md',
+      'get-shit-done/workflows/execute-phase.md',
+      'get-shit-done/workflows/execute-phase/steps/codebase-drift-gate.md',
+      'get-shit-done/workflows/execute-phase/steps/per-plan-worktree-gate.md',
+      'get-shit-done/workflows/execute-phase/steps/post-merge-gate.md',
+      'get-shit-done/workflows/help.md',
+      'get-shit-done/workflows/update.md',
+      'get-shit-done/workflows/sync-skills.md',
+      'get-shit-done/workflows/reapply-patches.md',
+    ];
+    const invoked = new Set();
+    for (const rel of files) {
+      const content = fs.readFileSync(path.join(repoRoot, rel), 'utf8');
+      for (const match of content.matchAll(/(?:agent:\s*|subagent_type=["']|agents\/)(gsd-[a-z0-9-]+)(?:["']|\.md)?/g)) {
+        invoked.add(match[1]);
+      }
+    }
+    assert.deepStrictEqual(
+      [...MINIMAL_AGENT_ALLOWLIST].sort(),
+      [...invoked].sort(),
     );
   });
 
@@ -155,7 +195,17 @@ describe('install-profiles: shouldInstallAgent', () => {
     for (const name of MINIMAL_AGENT_ALLOWLIST) {
       assert.strictEqual(shouldInstallAgent(name, 'minimal'), true, name);
     }
-    for (const denied of ['gsd-doc-writer', 'gsd-doc-verifier', 'gsd-security-auditor']) {
+    for (const denied of [
+      'gsd-debugger',
+      'gsd-doc-writer',
+      'gsd-doc-verifier',
+      'gsd-integration-checker',
+      'gsd-nyquist-auditor',
+      'gsd-security-auditor',
+      'gsd-ui-auditor',
+      'gsd-ui-checker',
+      'gsd-ui-researcher',
+    ]) {
       assert.strictEqual(shouldInstallAgent(denied, 'minimal'), false, denied);
     }
   });
