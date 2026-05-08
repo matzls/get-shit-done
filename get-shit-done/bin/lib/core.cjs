@@ -1239,6 +1239,9 @@ function getAgentsDir() {
   if (process.env.GSD_AGENTS_DIR) {
     return process.env.GSD_AGENTS_DIR;
   }
+  if (process.env.GSD_RUNTIME === 'codex') {
+    return path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'agents');
+  }
   // __dirname is get-shit-done/bin/lib/ → go up 3 levels to configDir
   return path.join(__dirname, '..', '..', '..', 'agents');
 }

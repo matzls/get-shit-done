@@ -289,6 +289,26 @@ describe('checkAgentsInstalled: Copilot .agent.md format (#1512)', () => {
     assert.deepStrictEqual(output.missing, ['gsd-executor']);
     assert.deepStrictEqual([...output.expected].sort(), [...MINIMAL_AGENT_ALLOWLIST].sort());
   });
+
+  test('GSD_RUNTIME=codex validates the Codex agents directory', () => {
+    const agentsDir = createAgentsDir(tmpDir, MINIMAL_AGENT_ALLOWLIST);
+    fs.writeFileSync(
+      path.join(tmpDir, 'gsd-file-manifest.json'),
+      JSON.stringify({ mode: 'minimal', files: {} }, null, 2),
+    );
+
+    const result = runGsdTools('validate agents --raw', tmpDir, {
+      CODEX_HOME: tmpDir,
+      GSD_RUNTIME: 'codex',
+    });
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.agents_dir, agentsDir);
+    assert.strictEqual(output.install_mode, 'minimal');
+    assert.strictEqual(output.agents_found, true);
+    assert.deepStrictEqual(output.missing, []);
+  });
 });
 
 // ─── validate agents subcommand ─────────────────────────────────────────────

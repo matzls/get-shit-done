@@ -16,15 +16,15 @@
 
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 
+import { loadConfig } from '../config.js';
 import { MODEL_PROFILES } from './config-query.js';
 import { GSDError, ErrorClassification } from '../errors.js';
 import { extractFrontmatter, parseMustHavesBlock } from './frontmatter.js';
-import { escapeRegex, expectedAgentsForAgentsDir, normalizePhaseName, planningPaths, resolvePathUnderProject } from './helpers.js';
+import { detectRuntime, escapeRegex, expectedAgentsForAgentsDir, normalizePhaseName, planningPaths, resolveAgentsDir, resolvePathUnderProject } from './helpers.js';
 import type { QueryHandler } from './utils.js';
-import { resolveBundledAgentsDir } from '../sdk-package-compatibility.js';
 
 /** Max length for key_links regex patterns (ReDoS mitigation). */
 const MAX_KEY_LINK_PATTERN_LEN = 512;
@@ -784,13 +784,17 @@ export const validateHealth: QueryHandler = async (args, projectDir, workstream)
 // ─── validateAgents ────────────────────────────────────────────────────────
 
 /**
- * Default agents directory — mirrors `getAgentsDir` in `get-shit-done/bin/lib/core.cjs`:
- * `GSD_AGENTS_DIR`, else `../../../agents` relative to this module (`sdk/dist/query` → monorepo
- * root), matching `core.cjs` (`get-shit-done/bin/lib` → same repo `agents/`).
+ * Default agents directory — mirrors runtime-aware init checks:
+ * `GSD_AGENTS_DIR`, else the detected runtime config directory's `agents/`.
  */
-function getAgentsDirForValidateAgents(): string {
-  if (process.env.GSD_AGENTS_DIR) return process.env.GSD_AGENTS_DIR;
-  return resolveBundledAgentsDir();
+async function getAgentsDirForValidateAgents(projectDir: string): Promise<string> {
+  let config: { runtime?: unknown } | undefined;
+  try {
+    config = await loadConfig(projectDir) as { runtime?: unknown };
+  } catch {
+    config = undefined;
+  }
+  return resolveAgentsDir(detectRuntime(config));
 }
 
 /**
@@ -798,8 +802,8 @@ function getAgentsDirForValidateAgents(): string {
  *
  * Port of `cmdValidateAgents` from `verify.cjs` lines 997–1009 (uses `checkAgentsInstalled` from core).
  */
-export const validateAgents: QueryHandler = async (_args, _projectDir) => {
-  const agentsDir = getAgentsDirForValidateAgents();
+export const validateAgents: QueryHandler = async (_args, projectDir) => {
+  const agentsDir = await getAgentsDirForValidateAgents(projectDir);
   const { install_mode: installMode, expected_agents: expected } = expectedAgentsForAgentsDir(agentsDir, Object.keys(MODEL_PROFILES));
   const installed: string[] = [];
   const missing: string[] = [];
