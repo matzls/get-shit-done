@@ -11,9 +11,9 @@
  *
  * The `minimal` profile installs the main GSD loop:
  *   new-project → discuss-phase → plan-phase → execute-phase
- * plus `help` (discoverability) and `update` (upgrade path). It also installs
- * only the subagents those minimal skills directly invoke or load as agent
- * prompt files.
+ * plus `code-review` (standard completion checkpoint), `help` (discoverability),
+ * and `update` (upgrade path). It also installs only the subagents those
+ * minimal skills directly invoke or load as agent prompt files.
  *
  * Users opt into minimal via `--minimal` on the install CLI.
  * Default install (`full`) is unchanged — back-compat preserved.
@@ -28,6 +28,7 @@ const MINIMAL_SKILL_ALLOWLIST = Object.freeze([
   'discuss-phase',
   'plan-phase',
   'execute-phase',
+  'code-review',
   'help',
   'update',
 ]);
@@ -36,6 +37,7 @@ const MINIMAL_AGENT_ALLOWLIST = Object.freeze([
   'gsd-advisor-researcher',
   'gsd-assumptions-analyzer',
   'gsd-codebase-mapper',
+  'gsd-code-reviewer',
   'gsd-executor',
   'gsd-pattern-mapper',
   'gsd-phase-researcher',

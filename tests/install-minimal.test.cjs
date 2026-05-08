@@ -44,6 +44,7 @@ describe('install-profiles: MINIMAL_SKILL_ALLOWLIST', () => {
     assert.deepStrictEqual(
       [...MINIMAL_SKILL_ALLOWLIST].sort(),
       [
+        'code-review',
         'discuss-phase',
         'execute-phase',
         'help',
@@ -77,6 +78,7 @@ describe('install-profiles: MINIMAL_AGENT_ALLOWLIST', () => {
       [
         'gsd-advisor-researcher',
         'gsd-assumptions-analyzer',
+        'gsd-code-reviewer',
         'gsd-codebase-mapper',
         'gsd-executor',
         'gsd-pattern-mapper',
@@ -98,6 +100,7 @@ describe('install-profiles: MINIMAL_AGENT_ALLOWLIST', () => {
       'commands/gsd/discuss-phase.md',
       'commands/gsd/plan-phase.md',
       'commands/gsd/execute-phase.md',
+      'commands/gsd/code-review.md',
       'commands/gsd/help.md',
       'commands/gsd/update.md',
       'get-shit-done/workflows/new-project.md',
@@ -115,6 +118,7 @@ describe('install-profiles: MINIMAL_AGENT_ALLOWLIST', () => {
       'get-shit-done/workflows/discuss-phase/modes/text.md',
       'get-shit-done/workflows/plan-phase.md',
       'get-shit-done/workflows/execute-phase.md',
+      'get-shit-done/workflows/code-review.md',
       'get-shit-done/workflows/execute-phase/steps/codebase-drift-gate.md',
       'get-shit-done/workflows/execute-phase/steps/per-plan-worktree-gate.md',
       'get-shit-done/workflows/execute-phase/steps/post-merge-gate.md',
@@ -220,6 +224,7 @@ describe('install-profiles: stageSkillsForMode', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-stage-fixture-'));
     fs.writeFileSync(path.join(tmp, 'plan-phase.md'), '# plan-phase\n');
     fs.writeFileSync(path.join(tmp, 'execute-phase.md'), '# execute-phase\n');
+    fs.writeFileSync(path.join(tmp, 'code-review.md'), '# code-review\n');
     fs.writeFileSync(path.join(tmp, 'autonomous.md'), '# autonomous\n');
     fs.writeFileSync(path.join(tmp, 'do.md'), '# do\n');
     fs.writeFileSync(path.join(tmp, 'help.md'), '# help\n');
@@ -248,6 +253,7 @@ describe('install-profiles: stageSkillsForMode', () => {
       assert.notStrictEqual(staged, src);
       const stagedFiles = fs.readdirSync(staged).sort();
       assert.deepStrictEqual(stagedFiles, [
+        'code-review.md',
         'discuss-phase.md',
         'execute-phase.md',
         'help.md',
@@ -691,17 +697,17 @@ describe('install: manifest records mode for both profiles', () => {
     assert.ok(r.agentCount > 0, `full install should have agents, got ${r.agentCount}`);
   });
 
-  test('--minimal records mode: "minimal" with exactly 6 skills and minimal agents', () => {
+  test('--minimal records mode: "minimal" with exactly 7 skills and minimal agents', () => {
     const r = manifestModeAfterInstall(['--minimal']);
     assert.strictEqual(r.mode, 'minimal');
-    assert.strictEqual(r.skillCount, 6);
+    assert.strictEqual(r.skillCount, 7);
     assert.strictEqual(r.agentCount, MINIMAL_AGENT_ALLOWLIST.length);
   });
 
   test('--core-only is an alias for --minimal', () => {
     const r = manifestModeAfterInstall(['--core-only']);
     assert.strictEqual(r.mode, 'minimal');
-    assert.strictEqual(r.skillCount, 6);
+    assert.strictEqual(r.skillCount, 7);
     assert.strictEqual(r.agentCount, MINIMAL_AGENT_ALLOWLIST.length);
   });
 });
@@ -735,7 +741,6 @@ describe('install-profiles: allowlist scope guards', () => {
       'fast',
       'quick',
       'debug',
-      'code-review',
       'verify-work',
     ]) {
       assert.ok(
