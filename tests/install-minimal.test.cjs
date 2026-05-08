@@ -6,8 +6,8 @@
  * Tests for `--minimal` install profile (#2762).
  *
  * Verifies:
- *   1. The install-profiles allowlist contains exactly the documented core
- *      main-loop skills.
+ *   1. The install-profiles allowlists contain exactly the documented core
+ *      main-loop skills and the agents those skills mention/spawn.
  *   2. stageSkillsForMode() filters source dir entries to the allowlist when
  *      mode === 'minimal' and is a no-op for mode === 'full'.
  *   3. Filtering is by basename (mirrors how copyCommandsAs*Skills derives
@@ -29,8 +29,10 @@ const path = require('path');
 const os = require('os');
 
 const {
+  MINIMAL_AGENT_ALLOWLIST,
   MINIMAL_SKILL_ALLOWLIST,
   isMinimalMode,
+  shouldInstallAgent,
   shouldInstallSkill,
   stageSkillsForMode,
   cleanupStagedSkills,
@@ -67,6 +69,49 @@ describe('install-profiles: MINIMAL_SKILL_ALLOWLIST', () => {
   });
 });
 
+describe('install-profiles: MINIMAL_AGENT_ALLOWLIST', () => {
+  test('contains exactly the agents required or mentioned by the minimal skills', () => {
+    assert.deepStrictEqual(
+      [...MINIMAL_AGENT_ALLOWLIST].sort(),
+      [
+        'gsd-advisor-researcher',
+        'gsd-assumptions-analyzer',
+        'gsd-codebase-mapper',
+        'gsd-debugger',
+        'gsd-executor',
+        'gsd-integration-checker',
+        'gsd-nyquist-auditor',
+        'gsd-pattern-mapper',
+        'gsd-phase-researcher',
+        'gsd-plan-checker',
+        'gsd-planner',
+        'gsd-project-researcher',
+        'gsd-research-synthesizer',
+        'gsd-roadmapper',
+        'gsd-ui-auditor',
+        'gsd-ui-checker',
+        'gsd-ui-researcher',
+        'gsd-verifier',
+      ],
+    );
+  });
+
+  test('is frozen (mutations throw in strict mode)', () => {
+    assert.ok(Object.isFrozen(MINIMAL_AGENT_ALLOWLIST));
+  });
+
+  test('every allowlisted agent exists in agents/', () => {
+    const agentsDir = path.join(__dirname, '..', 'agents');
+    for (const name of MINIMAL_AGENT_ALLOWLIST) {
+      const file = path.join(agentsDir, `${name}.md`);
+      assert.ok(
+        fs.existsSync(file),
+        `core agent ${name} is allowlisted but ${file} does not exist`,
+      );
+    }
+  });
+});
+
 describe('install-profiles: isMinimalMode', () => {
   test('returns true only for the literal string "minimal"', () => {
     assert.strictEqual(isMinimalMode('minimal'), true);
@@ -96,6 +141,27 @@ describe('install-profiles: shouldInstallSkill', () => {
 
   test('minimal mode rejects allowlist names with .md suffix (callers must strip)', () => {
     assert.strictEqual(shouldInstallSkill('plan-phase.md', 'minimal'), false);
+  });
+});
+
+describe('install-profiles: shouldInstallAgent', () => {
+  test('full mode admits every agent', () => {
+    assert.strictEqual(shouldInstallAgent('gsd-planner', 'full'), true);
+    assert.strictEqual(shouldInstallAgent('gsd-doc-writer', 'full'), true);
+    assert.strictEqual(shouldInstallAgent('arbitrary-future-agent', 'full'), true);
+  });
+
+  test('minimal mode admits only allowlisted agents', () => {
+    for (const name of MINIMAL_AGENT_ALLOWLIST) {
+      assert.strictEqual(shouldInstallAgent(name, 'minimal'), true, name);
+    }
+    for (const denied of ['gsd-doc-writer', 'gsd-doc-verifier', 'gsd-security-auditor']) {
+      assert.strictEqual(shouldInstallAgent(denied, 'minimal'), false, denied);
+    }
+  });
+
+  test('minimal mode rejects allowlist names with .md suffix (callers must strip)', () => {
+    assert.strictEqual(shouldInstallAgent('gsd-planner.md', 'minimal'), false);
   });
 });
 
@@ -385,7 +451,7 @@ function listTmpStageDirs() {
 // would leave stale `agents/gsd-*.toml` files plus `[agents.gsd-*]`
 // sections in `config.toml`. This test simulates a previous full Codex
 // install (a few stale agent files + an existing GSD-marked config.toml)
-// and confirms that `--minimal` cleans them up.
+// and confirms that `--minimal` shrinks it to the minimal agent allowlist.
 describe('install: Codex full → minimal downgrade cleans stale agent state', () => {
   const { spawnSync } = require('child_process');
   const installScript = path.join(__dirname, '..', 'bin', 'install.js');
@@ -436,21 +502,33 @@ describe('install: Codex full → minimal downgrade cleans stale agent state', (
       const agentsDir = path.join(targetDir, 'agents');
       const remaining = fs.existsSync(agentsDir) ? fs.readdirSync(agentsDir) : [];
 
-      // Stale gsd-* files (.md AND .toml) must be gone:
-      assert.ok(!remaining.includes('gsd-executor.md'), 'stale gsd-executor.md should be removed');
-      assert.ok(!remaining.includes('gsd-planner.md'), 'stale gsd-planner.md should be removed');
-      assert.ok(!remaining.includes('gsd-executor.toml'), 'stale gsd-executor.toml should be removed');
-      assert.ok(!remaining.includes('gsd-planner.toml'), 'stale gsd-planner.toml should be removed');
+      // Stale bytes must be replaced by freshly converted minimal agents:
+      assert.ok(remaining.includes('gsd-executor.md'), 'minimal gsd-executor.md should be installed');
+      assert.ok(remaining.includes('gsd-planner.md'), 'minimal gsd-planner.md should be installed');
+      assert.ok(remaining.includes('gsd-executor.toml'), 'minimal gsd-executor.toml should be registered');
+      assert.ok(remaining.includes('gsd-planner.toml'), 'minimal gsd-planner.toml should be registered');
+      assert.notStrictEqual(
+        fs.readFileSync(path.join(agentsDir, 'gsd-executor.md'), 'utf8'),
+        'stale\n',
+        'stale gsd-executor.md content should be replaced',
+      );
+      assert.notStrictEqual(
+        fs.readFileSync(path.join(agentsDir, 'gsd-planner.md'), 'utf8'),
+        'stale\n',
+        'stale gsd-planner.md content should be replaced',
+      );
 
       // User-owned agent must survive:
       assert.ok(remaining.includes('my-custom-agent.md'), 'user agent should be preserved');
 
-      // config.toml: GSD section gone, user content preserved
+      // config.toml: stale GSD block replaced by the minimal registrations,
+      // user content preserved.
       const configPath = path.join(targetDir, 'config.toml');
       if (fs.existsSync(configPath)) {
         const config = fs.readFileSync(configPath, 'utf8');
-        assert.ok(!config.includes('[agents.gsd-executor]'), 'gsd-executor section stripped');
-        assert.ok(!config.includes('[agents.gsd-planner]'), 'gsd-planner section stripped');
+        assert.ok(config.includes('[agents.gsd-executor]'), 'minimal gsd-executor section installed');
+        assert.ok(config.includes('[agents.gsd-planner]'), 'minimal gsd-planner section installed');
+        assert.ok(!config.includes('cmd = "stale"'), 'stale GSD config entries stripped');
         assert.ok(config.includes('model = "gpt-5"'), 'user setting preserved');
       }
       // (If config.toml was GSD-only it'd be removed entirely, which is also acceptable —
@@ -488,13 +566,29 @@ describe('install: Claude full → minimal downgrade removes stale agents', () =
       );
 
       const remaining = fs.existsSync(agentsDir) ? fs.readdirSync(agentsDir) : [];
-      assert.ok(!remaining.includes('gsd-executor.md'), 'stale gsd-executor.md removed');
-      assert.ok(!remaining.includes('gsd-planner.md'), 'stale gsd-planner.md removed');
+      assert.ok(remaining.includes('gsd-executor.md'), 'minimal gsd-executor.md installed');
+      assert.ok(remaining.includes('gsd-planner.md'), 'minimal gsd-planner.md installed');
+      assert.notStrictEqual(
+        fs.readFileSync(path.join(agentsDir, 'gsd-executor.md'), 'utf8'),
+        'stale\n',
+        'stale gsd-executor.md content should be replaced',
+      );
+      assert.notStrictEqual(
+        fs.readFileSync(path.join(agentsDir, 'gsd-planner.md'), 'utf8'),
+        'stale\n',
+        'stale gsd-planner.md content should be replaced',
+      );
       assert.ok(remaining.includes('my-custom-agent.md'), 'user agent preserved');
 
-      // No `gsd-*` files at all should remain:
-      const stragglers = remaining.filter((f) => f.startsWith('gsd-'));
-      assert.deepStrictEqual(stragglers, [], 'no gsd-* files should remain in agents/');
+      const installedGsdAgents = remaining
+        .filter((f) => f.startsWith('gsd-') && f.endsWith('.md'))
+        .map((f) => f.replace(/\.md$/, ''))
+        .sort();
+      assert.deepStrictEqual(
+        installedGsdAgents,
+        [...MINIMAL_AGENT_ALLOWLIST].sort(),
+        'minimal install should leave exactly the minimal gsd agent set',
+      );
     } finally {
       fs.rmSync(targetDir, { recursive: true, force: true });
     }
@@ -529,7 +623,11 @@ describe('install: manifest records mode for both profiles', () => {
           .filter((k) => k.startsWith('skills/'))
           .map((k) => k.split('/')[1]),
       ).size;
-      const agentCount = Object.keys(m.files || {}).filter((k) => k.startsWith('agents/')).length;
+      const agentCount = new Set(
+        Object.keys(m.files || {})
+          .filter((k) => k.startsWith('agents/'))
+          .map((k) => k.split('/')[1].replace(/\.agent\.md$/, '').replace(/\.(md|toml)$/, '')),
+      ).size;
       return { mode: m.mode, skillCount, agentCount };
     } finally {
       fs.rmSync(targetDir, { recursive: true, force: true });
@@ -543,18 +641,18 @@ describe('install: manifest records mode for both profiles', () => {
     assert.ok(r.agentCount > 0, `full install should have agents, got ${r.agentCount}`);
   });
 
-  test('--minimal records mode: "minimal" with exactly 6 skills and 0 agents', () => {
+  test('--minimal records mode: "minimal" with exactly 6 skills and minimal agents', () => {
     const r = manifestModeAfterInstall(['--minimal']);
     assert.strictEqual(r.mode, 'minimal');
     assert.strictEqual(r.skillCount, 6);
-    assert.strictEqual(r.agentCount, 0);
+    assert.strictEqual(r.agentCount, MINIMAL_AGENT_ALLOWLIST.length);
   });
 
   test('--core-only is an alias for --minimal', () => {
     const r = manifestModeAfterInstall(['--core-only']);
     assert.strictEqual(r.mode, 'minimal');
     assert.strictEqual(r.skillCount, 6);
-    assert.strictEqual(r.agentCount, 0);
+    assert.strictEqual(r.agentCount, MINIMAL_AGENT_ALLOWLIST.length);
   });
 });
 

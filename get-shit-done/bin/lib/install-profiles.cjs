@@ -9,9 +9,10 @@
  * meaningful tax for local LLMs with 32K–128K context. Frontier
  * models (Sonnet 4.6 / Opus 4.7 with 200K–1M ctx) don't feel it.
  *
- * The `minimal` profile installs the main GSD loop only:
+ * The `minimal` profile installs the main GSD loop:
  *   new-project → discuss-phase → plan-phase → execute-phase
- * plus `help` (discoverability) and `update` (upgrade path).
+ * plus `help` (discoverability) and `update` (upgrade path). It also installs
+ * only the subagents those minimal skills mention or spawn.
  *
  * Users opt into minimal via `--minimal` on the install CLI.
  * Default install (`full`) is unchanged — back-compat preserved.
@@ -30,7 +31,29 @@ const MINIMAL_SKILL_ALLOWLIST = Object.freeze([
   'update',
 ]);
 
+const MINIMAL_AGENT_ALLOWLIST = Object.freeze([
+  'gsd-advisor-researcher',
+  'gsd-assumptions-analyzer',
+  'gsd-codebase-mapper',
+  'gsd-debugger',
+  'gsd-executor',
+  'gsd-integration-checker',
+  'gsd-nyquist-auditor',
+  'gsd-pattern-mapper',
+  'gsd-phase-researcher',
+  'gsd-plan-checker',
+  'gsd-planner',
+  'gsd-project-researcher',
+  'gsd-research-synthesizer',
+  'gsd-roadmapper',
+  'gsd-ui-auditor',
+  'gsd-ui-checker',
+  'gsd-ui-researcher',
+  'gsd-verifier',
+]);
+
 const MINIMAL_ALLOWLIST_SET = new Set(MINIMAL_SKILL_ALLOWLIST);
+const MINIMAL_AGENT_ALLOWLIST_SET = new Set(MINIMAL_AGENT_ALLOWLIST);
 
 function isMinimalMode(mode) {
   return mode === 'minimal';
@@ -39,6 +62,11 @@ function isMinimalMode(mode) {
 function shouldInstallSkill(skillBaseName, mode) {
   if (!isMinimalMode(mode)) return true;
   return MINIMAL_ALLOWLIST_SET.has(skillBaseName);
+}
+
+function shouldInstallAgent(agentName, mode) {
+  if (!isMinimalMode(mode)) return true;
+  return MINIMAL_AGENT_ALLOWLIST_SET.has(agentName);
 }
 
 // Stage dirs created during this process — cleaned up on exit.
@@ -125,8 +153,10 @@ function stageSkillsForMode(srcDir, mode) {
 
 module.exports = {
   MINIMAL_SKILL_ALLOWLIST,
+  MINIMAL_AGENT_ALLOWLIST,
   isMinimalMode,
   shouldInstallSkill,
+  shouldInstallAgent,
   stageSkillsForMode,
   cleanupStagedSkills,
 };

@@ -8,7 +8,7 @@
  *   - Skills are correctly filtered for every runtime in both `--global`
  *     and `--local` modes (the dispatch sites in install.js all call
  *     stageSkillsForMode unconditionally).
- *   - Agents are correctly suppressed under --minimal.
+ *   - Agents are filtered to the minimal-agent allowlist under --minimal.
  *   - HOWEVER, the install manifest only recorded `commands/gsd/` for
  *     Gemini, leaving Claude Code local installs with an incomplete
  *     manifest. saveLocalPatches() then couldn't detect user edits and
@@ -17,11 +17,12 @@
  * This test pins per-runtime behavior end-to-end: spawn the installer
  * with --minimal for each runtime in each scope, parse the resulting
  * manifest JSON, assert that mode === 'minimal', the recorded skill set
- * equals MINIMAL_SKILL_ALLOWLIST, and zero gsd-* agents are present.
+ * equals MINIMAL_SKILL_ALLOWLIST, and the recorded agent set equals
+ * MINIMAL_AGENT_ALLOWLIST.
  *
  * Cline is rules-based and embeds the workflow in `.clinerules` rather
  * than emitting per-skill files. Asserted separately: mode === 'minimal',
- * zero agents, .clinerules exists.
+ * minimal agents, .clinerules exists.
  *
  * No regex / `.includes()` against file contents — every assertion
  * either parses JSON or walks a directory tree.
@@ -35,6 +36,7 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 
 const {
+  MINIMAL_AGENT_ALLOWLIST,
   MINIMAL_SKILL_ALLOWLIST,
 } = require('../get-shit-done/bin/lib/install-profiles.cjs');
 
@@ -175,13 +177,29 @@ function manifestAgentCount(manifest) {
   return Object.keys(manifest.files).filter((k) => k.startsWith('agents/')).length;
 }
 
+function manifestAgentSet(manifest) {
+  if (!manifest || !manifest.files) return new Set();
+  const out = new Set();
+  for (const key of Object.keys(manifest.files)) {
+    if (!key.startsWith('agents/')) continue;
+    const file = key.split('/')[1];
+    if (!file.startsWith('gsd-')) continue;
+    out.add(file.replace(/\.agent\.md$/, '').replace(/\.(md|toml)$/, ''));
+  }
+  return out;
+}
+
 function expectedSkillSet() {
   return new Set([...MINIMAL_SKILL_ALLOWLIST]);
 }
 
+function expectedAgentSet() {
+  return new Set([...MINIMAL_AGENT_ALLOWLIST]);
+}
+
 describe('install: --minimal honoured for every runtime in --global mode', () => {
   for (const runtime of SKILL_RUNTIMES) {
-    test(`${runtime} --global --minimal emits exactly the core skill set, zero agents`, () => {
+    test(`${runtime} --global --minimal emits exactly the core skill and agent sets`, () => {
       const { manifest, root } = runInstall({
         runtime,
         scope: 'global',
@@ -196,8 +214,11 @@ describe('install: --minimal honoured for every runtime in --global mode', () =>
           [...expectedSkillSet()].sort(),
           `${runtime} global should record exactly the MINIMAL allowlist in the manifest`,
         );
-        assert.strictEqual(manifestAgentCount(manifest), 0,
-          `${runtime} global --minimal should record zero gsd-* agents`);
+        assert.deepStrictEqual(
+          [...manifestAgentSet(manifest)].sort(),
+          [...expectedAgentSet()].sort(),
+          `${runtime} global --minimal should record exactly the MINIMAL agent allowlist`,
+        );
       } finally {
         fs.rmSync(root, { recursive: true, force: true });
       }
@@ -207,7 +228,7 @@ describe('install: --minimal honoured for every runtime in --global mode', () =>
 
 describe('install: --minimal honoured for every runtime in --local mode', () => {
   for (const runtime of SKILL_RUNTIMES) {
-    test(`${runtime} --local --minimal emits exactly the core skill set, zero agents`, () => {
+    test(`${runtime} --local --minimal emits exactly the core skill and agent sets`, () => {
       const { manifest, root } = runInstall({
         runtime,
         scope: 'local',
@@ -222,8 +243,11 @@ describe('install: --minimal honoured for every runtime in --local mode', () => 
           [...expectedSkillSet()].sort(),
           `${runtime} local should record exactly the MINIMAL allowlist in the manifest (regression guard for #2923)`,
         );
-        assert.strictEqual(manifestAgentCount(manifest), 0,
-          `${runtime} local --minimal should record zero gsd-* agents`);
+        assert.deepStrictEqual(
+          [...manifestAgentSet(manifest)].sort(),
+          [...expectedAgentSet()].sort(),
+          `${runtime} local --minimal should record exactly the MINIMAL agent allowlist`,
+        );
       } finally {
         fs.rmSync(root, { recursive: true, force: true });
       }
@@ -233,7 +257,7 @@ describe('install: --minimal honoured for every runtime in --local mode', () => 
 
 describe('install: Cline --minimal (rules-based runtime — no skills/ dir)', () => {
   for (const scope of ['global', 'local']) {
-    test(`cline --${scope} --minimal records mode=minimal and zero agents`, () => {
+    test(`cline --${scope} --minimal records mode=minimal and minimal agents`, () => {
       const { manifest, configDir, root } = runInstall({
         runtime: 'cline',
         scope,
@@ -242,8 +266,11 @@ describe('install: Cline --minimal (rules-based runtime — no skills/ dir)', ()
       try {
         assert.ok(manifest, `cline ${scope} install must produce a manifest`);
         assert.strictEqual(manifest.mode, 'minimal');
-        assert.strictEqual(manifestAgentCount(manifest), 0,
-          `cline ${scope} --minimal should record zero gsd-* agents`);
+        assert.deepStrictEqual(
+          [...manifestAgentSet(manifest)].sort(),
+          [...expectedAgentSet()].sort(),
+          `cline ${scope} --minimal should record exactly the MINIMAL agent allowlist`,
+        );
 
         // .clinerules exists (Cline embeds the workflow there in lieu of
         // per-skill files).
@@ -282,15 +309,13 @@ describe('install: directory-on-disk matches manifest for --minimal', () => {
             [...inManifest].sort(),
             `${runtime} ${scope}: on-disk skills must match manifest record`,
           );
-          // And no gsd-*.md agent file should exist on disk either:
+          // And the on-disk gsd agent set should match the minimal allowlist:
           const agentsDir = path.join(configDir, 'agents');
-          if (fs.existsSync(agentsDir)) {
-            const gsdAgents = fs.readdirSync(agentsDir).filter(
-              (f) => f.startsWith('gsd-') && f.endsWith('.md'),
-            );
-            assert.deepStrictEqual(gsdAgents, [],
-              `${runtime} ${scope} --minimal should not write gsd-*.md agents on disk`);
-          }
+          assert.deepStrictEqual(
+            fs.existsSync(agentsDir) ? collectAgentBasenamesOnDisk(agentsDir) : [],
+            [...expectedAgentSet()].sort(),
+            `${runtime} ${scope} --minimal should write only minimal gsd agents on disk`,
+          );
         } finally {
           fs.rmSync(root, { recursive: true, force: true });
         }
@@ -341,4 +366,12 @@ function collectSkillBasenamesOnDisk(configDir) {
   }
 
   return out;
+}
+
+function collectAgentBasenamesOnDisk(agentsDir) {
+  return fs.readdirSync(agentsDir)
+    .filter((f) => f.startsWith('gsd-'))
+    .map((f) => f.replace(/\.agent\.md$/, '').replace(/\.(md|toml)$/, ''))
+    .filter((value, index, arr) => arr.indexOf(value) === index)
+    .sort();
 }
