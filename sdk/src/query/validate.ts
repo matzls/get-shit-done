@@ -794,7 +794,7 @@ async function getAgentsDirForValidateAgents(projectDir: string): Promise<string
   } catch {
     config = undefined;
   }
-  return resolveAgentsDir(detectRuntime(config));
+  return resolveAgentsDir(detectRuntime(config, projectDir));
 }
 
 /**

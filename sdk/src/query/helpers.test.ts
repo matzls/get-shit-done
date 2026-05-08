@@ -407,6 +407,15 @@ describe('detectRuntime', () => {
     expect(detectRuntime({ runtime: 'gemini' })).toBe('gemini');
   });
 
+  it('uses CODEX_HOME as a Codex runtime signal when explicit runtime is unset', () => {
+    process.env.CODEX_HOME = '/codex';
+    expect(detectRuntime()).toBe('codex');
+  });
+
+  it('uses the Codex config directory path as a Codex runtime signal', () => {
+    expect(detectRuntime(undefined, join(homedir(), '.codex'))).toBe('codex');
+  });
+
   it('GSD_RUNTIME wins over config.runtime', () => {
     process.env.GSD_RUNTIME = 'codex';
     expect(detectRuntime({ runtime: 'gemini' })).toBe('codex');

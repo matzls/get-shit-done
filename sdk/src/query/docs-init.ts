@@ -204,8 +204,8 @@ export function detectMonorepoWorkspaces(cwd: string): string[] {
 /**
  * Port of `checkAgentsInstalled` from core.cjs (same logic as init.ts).
  */
-function checkAgentsInstalled(config?: { runtime?: unknown }): { agents_installed: boolean; missing_agents: string[] } {
-  const runtime = detectRuntime(config);
+function checkAgentsInstalled(config?: { runtime?: unknown }, projectDir?: string): { agents_installed: boolean; missing_agents: string[] } {
+  const runtime = detectRuntime(config, projectDir);
   const agentsDir = resolveAgentsDir(runtime);
   const { expected_agents: expectedAgents } = expectedAgentsForAgentsDir(agentsDir, Object.keys(MODEL_PROFILES));
 
@@ -239,7 +239,7 @@ export const docsInit: QueryHandler = async (_args, projectDir) => {
   const docWriterData = docModelResult.data as Record<string, unknown>;
   const doc_writer_model = configExists ? ((docWriterData?.model as string) || '') : '';
 
-  const agentStatus = checkAgentsInstalled(config as { runtime?: unknown });
+  const agentStatus = checkAgentsInstalled(config as { runtime?: unknown }, projectDir);
 
   const data: Record<string, unknown> = {
     doc_writer_model,

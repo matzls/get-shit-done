@@ -94,12 +94,14 @@ export function getRuntimeConfigDir(runtime: Runtime): string {
  * Detect the invoking runtime using issue #2402 precedence:
  *   1. `GSD_RUNTIME` env var
  *   2. `config.runtime` field (from `.planning/config.json` when loaded)
- *   3. Fallback to `'claude'`
+ *   3. `CODEX_HOME` env var as a Codex runtime signal
+ *   4. project/root path equals the Codex config directory
+ *   5. Fallback to `'claude'`
  *
  * Unknown values fall through to the next tier rather than throwing, so
  * stale env values don't hard-block workflows.
  */
-export function detectRuntime(config?: { runtime?: unknown }): Runtime {
+export function detectRuntime(config?: { runtime?: unknown }, runtimeContextPath?: string): Runtime {
   const envValue = process.env.GSD_RUNTIME;
   if (envValue && (SUPPORTED_RUNTIMES as readonly string[]).includes(envValue)) {
     return envValue as Runtime;
@@ -107,6 +109,12 @@ export function detectRuntime(config?: { runtime?: unknown }): Runtime {
   const configValue = config?.runtime;
   if (typeof configValue === 'string' && (SUPPORTED_RUNTIMES as readonly string[]).includes(configValue)) {
     return configValue as Runtime;
+  }
+  if (process.env.CODEX_HOME) {
+    return 'codex';
+  }
+  if (runtimeContextPath && resolve(runtimeContextPath) === resolve(getRuntimeConfigDir('codex'))) {
+    return 'codex';
   }
   return 'claude';
 }
