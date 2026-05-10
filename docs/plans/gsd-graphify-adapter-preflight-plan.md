@@ -57,7 +57,7 @@ Upstream GSD already has a Graphify integration:
 - `commands/gsd/graphify.md`
 - `tests/graphify.test.cjs`
 - graph-context loading in `agents/gsd-planner.md`
-- graph-context loading in `agents/gsd-phase-researcher.md`
+- graph-context loading in the phase researcher agent file
 
 The upstream integration stores consumed artifacts under `.planning/graphs/`.
 Standalone Graphify writes its normal output under `graphify-out/`.

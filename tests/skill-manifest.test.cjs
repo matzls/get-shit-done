@@ -52,7 +52,7 @@ describe('skill-manifest', () => {
   });
 
   test('returns normalized inventory across canonical roots', () => {
-    const result = runGsdTools(['skill-manifest'], tmpDir, { HOME: homeDir });
+    const result = runGsdTools(['skill-manifest'], tmpDir, { HOME: homeDir, CODEX_HOME: path.join(homeDir, '.codex') });
     assert.ok(result.success, `Command should succeed: ${result.error || result.output}`);
 
     const manifest = JSON.parse(result.output);

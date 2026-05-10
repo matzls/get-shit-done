@@ -67,10 +67,10 @@ For Mase fork-managed installs:
 
 - The section should point framework update, sync, inventory, and propagation
   work back to the local fork:
-  `/Users/mase/Codebase/Personal-Projects/get-shit-done`.
+  the local `get-shit-done` fork checkout.
 - The section should name the fork propagation skill as the owner for framework
   maintenance:
-  `/Users/mase/Codebase/Personal-Projects/get-shit-done/.codex/skills/gsd-fork-propagate/SKILL.md`.
+  the fork propagation skill named `gsd-fork-propagate`.
 - The section should warn against public npm and upstream update flows unless
   Mase explicitly asks to replace the fork-managed setup.
 
@@ -107,7 +107,7 @@ itself.
 For GSD framework updates, install inventory, stale install checks,
 propagation dry-runs, or confirmed propagation, use Mase's local GSD fork:
 
-`/Users/mase/Codebase/Personal-Projects/get-shit-done/.codex/skills/gsd-fork-propagate/SKILL.md`
+the fork propagation skill named `gsd-fork-propagate`
 
 Do not use `/gsd-update`, `npx get-shit-done-cc@latest`, public npm update
 flows, or upstream install flows unless Mase explicitly asks to replace the

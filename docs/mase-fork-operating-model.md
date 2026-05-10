@@ -153,8 +153,9 @@ Before pushing local fixes to `origin/mase/local-fixes`, run focused checks for
 the touched area. For hook/config work, prefer:
 
 ```bash
-node --check .codex/hooks/gsd-check-update.js
-node --check .codex/hooks/gsd-check-update-worker.js
+GSD_HOOKS_DIR=.codex/hooks
+node --check "$GSD_HOOKS_DIR"/"gsd-check-update.js"
+node --check "$GSD_HOOKS_DIR"/"gsd-check-update-worker.js"
 ```
 
 When tests exist for installer/config generation, add or run the targeted test

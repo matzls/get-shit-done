@@ -2,7 +2,6 @@
 name: gsd:plan-brief
 description: Generate or check a human-readable BRIEF.md companion for PLAN.md artifacts
 argument-hint: "<plan-path|phase> [--check]"
-agent: gsd-planner
 allowed-tools:
   - Read
   - Write

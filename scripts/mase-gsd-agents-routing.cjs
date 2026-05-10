@@ -58,7 +58,7 @@ function templateBody() {
     'For GSD framework updates, install inventory, stale install checks,',
     "propagation dry-runs, or confirmed propagation, use Mase's local GSD fork:",
     '',
-    '`/Users/mase/Codebase/Personal-Projects/get-shit-done/.codex/skills/gsd-fork-propagate/SKILL.md`',
+    'the local fork propagation skill (`.codex/skills/gsd-fork-propagate/SKILL.md` in the fork checkout)',
     '',
     'Do not use `/gsd-update`, `npx get-shit-done-cc@latest`, public npm update',
     'flows, or upstream install flows unless Mase explicitly asks to replace the',
