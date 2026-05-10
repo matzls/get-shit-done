@@ -64,6 +64,7 @@ const path = require('node:path');
 const cp = require('node:child_process');
 
 const [, , repoRoot, runtimeFilter, jsonFlag, ...roots] = process.argv;
+const agentsRouting = require(path.join(repoRoot, 'scripts', 'mase-gsd-agents-routing.cjs'));
 const emitJson = jsonFlag === 'true';
 const skipNames = new Set(['.git', 'node_modules', '.next', 'dist', 'build', '.cache', 'coverage', 'vendor', '.venv', 'venv']);
 const runtimeByDir = new Map([
@@ -216,7 +217,29 @@ for (const { configDir, runtime } of configDirs) {
     status,
     target_git_status: targetGitStatus,
     reason,
+    ...agentsRoutingFields({ runtime, scope, targetPath, targetGitStatus }),
   });
+}
+
+function agentsRoutingFields({ runtime, scope, targetPath, targetGitStatus }) {
+  if (runtime !== 'codex' || scope !== 'local') return {};
+  if (targetGitStatus === 'dirty') {
+    const status = agentsRouting.inspect(targetPath);
+    return {
+      agents_routing_status: 'blocked_dirty_target',
+      agents_routing_evidence: [
+        ...status.evidence,
+        'target_git_status:dirty',
+      ],
+      agents_routing_data: status.data,
+    };
+  }
+  const status = agentsRouting.inspect(targetPath);
+  return {
+    agents_routing_status: status.status,
+    agents_routing_evidence: status.evidence,
+    agents_routing_data: status.data,
+  };
 }
 
 rows.sort((a, b) => a.install_dir.localeCompare(b.install_dir));

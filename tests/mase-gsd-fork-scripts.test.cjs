@@ -11,6 +11,7 @@ const repoRoot = path.join(__dirname, '..');
 const inventoryScript = path.join(repoRoot, 'scripts', 'mase-gsd-install-inventory.sh');
 const propagateScript = path.join(repoRoot, 'scripts', 'mase-gsd-propagate.sh');
 const installScript = path.join(repoRoot, 'scripts', 'mase-install-fork.sh');
+const agentsRoutingScript = path.join(repoRoot, 'scripts', 'mase-gsd-agents-routing.cjs');
 
 function run(script, args, opts = {}) {
   return cp.execFileSync(script, args, {
@@ -86,6 +87,60 @@ describe('Mase GSD fork install inventory', () => {
     const parsed = JSON.parse(run(inventoryScript, ['--root', tmp, '--runtime', 'codex', '--json']));
     assert.equal(parsed.installs.length, 1);
     assert.equal(parsed.installs[0].status, 'broken');
+  });
+
+  test('reports target repo AGENTS.md routing status and evidence', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mase-gsd-routing-inventory-'));
+    const { target } = writeInstall(tmp, 'current-repo', { commit: currentForkCommit(), mode: 'full' });
+
+    run(process.execPath, [agentsRoutingScript, 'apply', '--target', target, '--json']);
+
+    const parsed = JSON.parse(run(inventoryScript, ['--root', tmp, '--runtime', 'codex', '--json']));
+    assert.equal(parsed.installs.length, 1);
+    assert.equal(parsed.installs[0].agents_routing_status, 'current');
+    assert.ok(parsed.installs[0].agents_routing_evidence.some((item) => item.startsWith('agents_exists:')));
+    assert.ok(parsed.installs[0].agents_routing_data.template_sha256);
+  });
+});
+
+describe('Mase GSD target AGENTS.md routing helper', () => {
+  test('creates a managed routing block when AGENTS.md is missing', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mase-gsd-routing-create-'));
+    const target = path.join(tmp, 'repo');
+    fs.mkdirSync(target, { recursive: true });
+
+    const result = JSON.parse(run(process.execPath, [agentsRoutingScript, 'apply', '--target', target, '--json']));
+    const agents = fs.readFileSync(path.join(target, 'AGENTS.md'), 'utf8');
+
+    assert.equal(result.status, 'current');
+    assert.match(agents, /<!-- gsd-routing-start -->/);
+    assert.match(agents, /## GSD Routing/);
+    assert.match(agents, /gsd-fork-propagate/);
+  });
+
+  test('preserves existing instructions while appending the managed block', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mase-gsd-routing-preserve-'));
+    const target = path.join(tmp, 'repo');
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, 'AGENTS.md'), '# Existing Rules\n\nKeep this project-specific note.\n');
+
+    run(process.execPath, [agentsRoutingScript, 'apply', '--target', target, '--json']);
+    const agents = fs.readFileSync(path.join(target, 'AGENTS.md'), 'utf8');
+
+    assert.match(agents, /Keep this project-specific note/);
+    assert.match(agents, /<!-- gsd-routing-start -->/);
+  });
+
+  test('reports unmanaged GSD routing text as unknown instead of overwriting it during status', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mase-gsd-routing-unmanaged-'));
+    const target = path.join(tmp, 'repo');
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, 'AGENTS.md'), '# Existing Rules\n\nUse gsd-fork-propagate for framework updates.\n');
+
+    const result = JSON.parse(run(process.execPath, [agentsRoutingScript, 'status', '--target', target, '--json']));
+
+    assert.equal(result.status, 'unknown');
+    assert.equal(result.data.finding, 'unmanaged_gsd_routing');
   });
 });
 

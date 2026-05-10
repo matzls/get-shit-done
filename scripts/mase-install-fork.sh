@@ -199,6 +199,15 @@ remove_marker() {
   fi
 }
 
+ensure_agents_routing() {
+  local target_path="$1"
+  if [ "$scope" != "local" ] || [ "$runtime" != "codex" ]; then
+    return 0
+  fi
+  node "$repo_root/scripts/mase-gsd-agents-routing.cjs" apply --target "$target_path" --json >/dev/null
+  echo "Ensured GSD routing guidance in: $target_path/AGENTS.md"
+}
+
 branch="$(git -C "$repo_root" branch --show-current)"
 if [ "$branch" = "main" ] && [ "${GSD_ALLOW_MAIN_INSTALL:-}" != "1" ]; then
   echo "Refusing to install from main; main is the clean upstream mirror." >&2
@@ -252,4 +261,5 @@ if [ "${#extra_args[@]}" -gt 0 ] && { has_arg "--uninstall" "${extra_args[@]}" |
   remove_marker "$runtime_config_dir"
 else
   write_marker "$runtime_config_dir" "$mode" "$target_path" "$branch" "$commit_sha"
+  ensure_agents_routing "$target_path"
 fi
