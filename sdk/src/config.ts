@@ -48,6 +48,8 @@ export interface WorkflowConfig {
   research_before_questions: boolean;
   discuss_mode: string;
   skip_discuss: boolean;
+  /** Run cross-AI plan review before execute-phase starts. Default: true. */
+  plan_review: boolean;
   /** Maximum self-discuss passes in auto/headless mode before forcing proceed. Default: 3. */
   max_discuss_passes: number;
   /** Subagent timeout in ms (matches `get-shit-done/bin/lib/core.cjs` default 300000). */
@@ -116,6 +118,7 @@ export const CONFIG_DEFAULTS: GSDConfig = {
     research_before_questions: false,
     discuss_mode: 'discuss',
     skip_discuss: false,
+    plan_review: true,
     max_discuss_passes: 3,
     subagent_timeout: 300000,
     context_coverage_gate: true,

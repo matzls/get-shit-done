@@ -339,6 +339,50 @@ Report:
 ```
 </step>
 
+<step name="plan_review_gate" required="true">
+**This step is REQUIRED and must not be skipped.** Auto-invoke cross-AI plan review before execution when the phase has not already been reviewed. Advisory only — never blocks execution flow.
+
+This is separate from the post-execution `code_review_gate`: plan review checks whether the phase plans look sound before implementation starts; code review checks the source changes after implementation.
+
+**Config gate:**
+```bash
+PLAN_REVIEW_ENABLED=$(gsd-sdk query config-get workflow.plan_review --default true 2>/dev/null || echo "true")
+```
+
+If `PLAN_REVIEW_ENABLED` is `"false"`: display "Plan review skipped (workflow.plan_review=false)" and proceed to `cross_ai_delegation`.
+
+**Skip if review already exists:**
+```bash
+REVIEWS_FILE=$(find "${PHASE_DIR}" -maxdepth 1 -type f \( -name '*-REVIEWS.md' -o -name 'REVIEWS.md' \) -print | sort | sed -n '1p')
+```
+
+If `REVIEWS_FILE` is non-empty: display "Plan review already present: ${REVIEWS_FILE}" and proceed to `cross_ai_delegation`.
+
+**Invoke review:**
+```
+Skill(skill="gsd-review", args="--phase ${PHASE_NUMBER}")
+```
+
+**Check results using deterministic discovery:**
+```bash
+REVIEWS_FILE=$(find "${PHASE_DIR}" -maxdepth 1 -type f \( -name '*-REVIEWS.md' -o -name 'REVIEWS.md' \) -print | sort | sed -n '1p')
+```
+
+If `REVIEWS_FILE` is still empty, display:
+```
+Plan review did not create REVIEWS.md. Continuing because plan review is advisory.
+```
+
+If `REVIEWS_FILE` exists, display:
+```
+Plan review complete: ${REVIEWS_FILE}
+```
+
+**Error handling:** If the Skill invocation fails or throws, catch the error, display "Plan review encountered an error (non-blocking): {error}" and proceed to `cross_ai_delegation`. Review failures must never block execution.
+
+Regardless of review result, ALWAYS proceed to cross_ai_delegation → execute_waves.
+</step>
+
 <step name="cross_ai_delegation">
 **Optional step 2.5 — Delegate plans to an external AI runtime.**
 

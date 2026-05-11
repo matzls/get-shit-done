@@ -182,6 +182,7 @@ function buildNewProjectConfig(userChoices) {
       research_before_questions: false,
       discuss_mode: 'discuss',
       skip_discuss: false,
+      plan_review: true,
       code_review: true,
       code_review_depth: 'standard',
       code_review_command: null,

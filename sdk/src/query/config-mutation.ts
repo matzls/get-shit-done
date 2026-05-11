@@ -471,6 +471,7 @@ export const configNewProject: QueryHandler = async (args, projectDir, workstrea
       research_before_questions: false,
       discuss_mode: 'discuss',
       skip_discuss: false,
+      plan_review: true,
       code_review: true,
       code_review_depth: 'standard',
     },

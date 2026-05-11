@@ -425,6 +425,16 @@ describe('CR-CONFIG: config key registration', () => {
     }
   });
 
+  test('config-set accepts workflow.plan_review', () => {
+    const tmpDir = createTempProject();
+    try {
+      const result = runGsdTools('config-set workflow.plan_review true', tmpDir);
+      assert.ok(result.success, `config-set should accept workflow.plan_review: ${result.error}`);
+    } finally {
+      cleanup(tmpDir);
+    }
+  });
+
   test('config-get workflow.code_review returns value set via config-set', (t) => {
     const tmpDir = createTempProject();
     t.after(() => cleanup(tmpDir));
@@ -450,6 +460,19 @@ describe('CR-CONFIG: config key registration', () => {
     assert.strictEqual(getResult.output, '"standard"',
       `workflow.code_review_depth should return '"standard"', got ${getResult.output}`);
   });
+
+  test('config-get workflow.plan_review returns value set via config-set', (t) => {
+    const tmpDir = createTempProject();
+    t.after(() => cleanup(tmpDir));
+
+    const setResult = runGsdTools(['config-set', 'workflow.plan_review', 'false'], tmpDir);
+    assert.ok(setResult.success, `config-set workflow.plan_review failed: ${setResult.error}`);
+
+    const getResult = runGsdTools(['config-get', 'workflow.plan_review'], tmpDir);
+    assert.ok(getResult.success, `config-get workflow.plan_review failed: ${getResult.error}`);
+    assert.strictEqual(getResult.output, 'false',
+      `workflow.plan_review should return "false", got ${getResult.output}`);
+  });
 });
 
 // --- CR-INTEGRATION: workflow integration points ---
@@ -467,6 +490,23 @@ describe('CR-INTEGRATION: workflow integration points', () => {
 
     assert.match(content, /config-get\s+workflow\.code_review/,
       'execute-phase.md missing config-get workflow.code_review call');
+  });
+
+  test('execute-phase.md contains required plan_review_gate before code_review_gate', () => {
+    const content = fs.readFileSync(path.join(WORKFLOWS_DIR, 'execute-phase.md'), 'utf-8');
+
+    const planReviewIdx = content.indexOf('<step name="plan_review_gate" required="true">');
+    const codeReviewIdx = content.indexOf('<step name="code_review_gate" required="true">');
+
+    assert.notStrictEqual(planReviewIdx, -1, 'execute-phase.md missing required plan_review_gate');
+    assert.notStrictEqual(codeReviewIdx, -1, 'execute-phase.md missing required code_review_gate');
+    assert.ok(planReviewIdx < codeReviewIdx, 'plan_review_gate must run before code_review_gate');
+    assert.match(content, /config-get\s+workflow\.plan_review/, 'plan_review_gate must read workflow.plan_review');
+    assert.ok(content.includes('Skill(skill="gsd-review"'), 'plan_review_gate must invoke gsd-review');
+    assert.ok(content.includes('REVIEWS.md'), 'plan_review_gate must check/create REVIEWS.md');
+    assert.match(content, /find\s+"\$\{PHASE_DIR\}"\s+-maxdepth\s+1/, 'plan_review_gate must use deterministic review discovery');
+    assert.ok(!content.includes('"${PHASE_DIR}"/*-REVIEWS.md'),
+      'plan_review_gate must not use unmatched shell globs for REVIEWS.md discovery');
   });
 
   test('execute-phase.md does NOT contain ls.*REVIEW.md.*head pattern', { skip: !PLUGIN_AVAILABLE ? 'Plugin dir not installed' : false }, () => {
