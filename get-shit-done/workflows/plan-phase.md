@@ -1616,11 +1616,30 @@ re-run `/gsd:plan-phase --gaps` to add plans, or proceed to execute-phase as-is.
 
 Route to `<offer_next>` OR `auto_advance` depending on flags/config.
 
-Before presenting the final status, collect created plan and brief artifact
-paths from `${PHASE_DIR}` and resolve them to absolute paths:
+Before presenting the final status, enforce the plan-brief completion invariant:
+when the phase has any `*-PLAN.md` files, every one must have a current sibling
+`*-BRIEF.md`. Re-run the deterministic check, regenerate if any brief is missing
+or stale, then check again. If the second check still fails, stop and report the
+brief-generation failure instead of presenting `PHASE PLANNED`.
 
 ```bash
 PLAN_FILES=$(ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null || true)
+if [ -n "$PLAN_FILES" ]; then
+  PLAN_BRIEF_CHECK=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}" --check)
+  if [[ "$PLAN_BRIEF_CHECK" == @file:* ]]; then PLAN_BRIEF_CHECK=$(cat "${PLAN_BRIEF_CHECK#@file:}"); fi
+  PLAN_BRIEF_PASSED=$(node -e "const p=JSON.parse(process.argv[1]); process.stdout.write(p.passed ? 'true' : 'false')" "$PLAN_BRIEF_CHECK")
+  if [ "$PLAN_BRIEF_PASSED" != "true" ]; then
+    node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}"
+    PLAN_BRIEF_CHECK=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}" --check)
+    if [[ "$PLAN_BRIEF_CHECK" == @file:* ]]; then PLAN_BRIEF_CHECK=$(cat "${PLAN_BRIEF_CHECK#@file:}"); fi
+    PLAN_BRIEF_PASSED=$(node -e "const p=JSON.parse(process.argv[1]); process.stdout.write(p.passed ? 'true' : 'false')" "$PLAN_BRIEF_CHECK")
+  fi
+  if [ "$PLAN_BRIEF_PASSED" != "true" ]; then
+    echo "Plan brief generation/check failed for ${PHASE_DIR}:"
+    echo "$PLAN_BRIEF_CHECK"
+    exit 1
+  fi
+fi
 BRIEF_FILES=$(ls "${PHASE_DIR}"/*-BRIEF.md 2>/dev/null || true)
 ```
 

@@ -1,6 +1,6 @@
 ---
 name: gsd:plan-phase
-description: Create detailed phase plan (PLAN.md) with verification loop
+description: Create detailed phase plans with verification and BRIEF.md companions
 argument-hint: "[phase] [--auto] [--research] [--skip-research] [--research-phase <N>] [--view] [--gaps] [--skip-verify] [--prd <file>] [--ingest <path-or-glob>] [--ingest-format <auto|nygard|madr|narrative>] [--reviews] [--text] [--tdd] [--mvp]"
 allowed-tools:
   - Read
@@ -14,9 +14,10 @@ allowed-tools:
   - mcp__context7__*
 ---
 <objective>
-Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research and verification.
+Create executable phase prompts (`PLAN.md` files) for a roadmap phase with integrated research,
+verification, and human-readable `BRIEF.md` companions.
 
-**Default flow:** Research (if needed) → Plan → Verify → Done
+**Default flow:** Research (if needed) → Plan → Verify → Briefs → Done
 
 **Research-only mode (`--research-phase <N>`):** Spawn `gsd-phase-researcher` for phase `N`, write `RESEARCH.md`, then exit before the planner runs. Useful for cross-phase research, doc review before committing to a planning approach, and correction-without-replanning loops where iterating on research alone is dramatically cheaper than re-spawning the planner. Replaces the deleted `/gsd-research-phase` command (#3042).
 
@@ -25,7 +26,7 @@ Create executable phase prompts (PLAN.md files) for a roadmap phase with integra
 - **`--research`** — force-refresh: re-spawn the researcher unconditionally, no prompt. Skips the existing-RESEARCH.md menu.
 - **`--view`** — view-only: print existing `RESEARCH.md` to stdout. Does not spawn the researcher. Cheapest mode for the correction-without-replanning loop. If no `RESEARCH.md` exists yet, errors with a hint to drop `--view`.
 
-**Orchestrator role:** Parse arguments, validate phase, research domain (unless skipped), spawn gsd-planner, verify with gsd-plan-checker, iterate until pass or max iterations, present results.
+**Orchestrator role:** Parse arguments, validate phase, research domain (unless skipped), spawn gsd-planner, verify with gsd-plan-checker, iterate until pass or max iterations, generate/check `*-BRIEF.md` companions, present results.
 </objective>
 
 <execution_context>
