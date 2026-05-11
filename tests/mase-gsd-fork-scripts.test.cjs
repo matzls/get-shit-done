@@ -115,6 +115,8 @@ describe('Mase GSD target AGENTS.md routing helper', () => {
     assert.equal(result.status, 'current');
     assert.match(agents, /<!-- gsd-routing-start -->/);
     assert.match(agents, /## GSD Routing/);
+    assert.match(agents, /gsd-map-codebase` then `gsd-new-project/);
+    assert.match(agents, /Inspect workflow files under/);
     assert.match(agents, /gsd-fork-propagate/);
   });
 
