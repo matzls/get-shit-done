@@ -5,7 +5,7 @@ status: active
 audience: "agents-maintainers"
 canonicality: canonical
 created: 2026-05-04
-updated: 2026-05-05
+updated: 2026-05-11
 ---
 
 # Mase GSD Fork Operating Model
@@ -68,6 +68,12 @@ Do not use `/gsd-update` or `npx get-shit-done-cc@latest` to maintain a
 fork-based install. The upstream update workflow checks npm package
 `get-shit-done-cc` and reinstalls the public upstream package, so it can replace
 Mase-specific fork changes.
+
+For a new target repository, use the standard preflight and install checklist in
+[`docs/mase-fork-new-repo-install.md`](mase-fork-new-repo-install.md). That
+checklist is the canonical operator procedure for single-repo fork installs,
+including target git state, Codex hook ownership, install mode, and post-install
+verification.
 
 For Mase-managed installs, update this repository first, then install from the
 checked-out fork branch:
