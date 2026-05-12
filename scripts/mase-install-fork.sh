@@ -14,7 +14,7 @@ Examples:
 Notes:
   - Local installs target the current working directory of the installer, so this
     wrapper runs the installer from --target.
-  - The wrapper refuses to install from main unless GSD_ALLOW_MAIN_INSTALL=1 is set.
+  - The wrapper refuses to install from mirror branches unless GSD_ALLOW_MIRROR_INSTALL=1 is set.
 EOF
 }
 
@@ -209,9 +209,9 @@ ensure_agents_routing() {
 }
 
 branch="$(git -C "$repo_root" branch --show-current)"
-if [ "$branch" = "main" ] && [ "${GSD_ALLOW_MAIN_INSTALL:-}" != "1" ]; then
-  echo "Refusing to install from main; main is the clean upstream mirror." >&2
-  echo "Checkout mase/local-fixes, or set GSD_ALLOW_MAIN_INSTALL=1 intentionally." >&2
+if { [ "$branch" = "main" ] || [ "$branch" = "upstream-main" ]; } && [ "${GSD_ALLOW_MIRROR_INSTALL:-${GSD_ALLOW_MAIN_INSTALL:-}}" != "1" ]; then
+  echo "Refusing to install from $branch; $branch is a clean upstream mirror." >&2
+  echo "Checkout mase/local-fixes, or set GSD_ALLOW_MIRROR_INSTALL=1 intentionally." >&2
   exit 1
 fi
 

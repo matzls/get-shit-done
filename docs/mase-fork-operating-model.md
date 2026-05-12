@@ -31,12 +31,13 @@ git remote set-url --push upstream DISABLED
 
 Use the Graphify-style patch-stack model:
 
-- `main`: clean mirror of `upstream/main`
+- `upstream-main`: clean mirror of `upstream/main`
 - `mase/local-fixes`: durable local customization branch
 - `fix/<topic>` or `mase/<topic>`: focused task branches from `mase/local-fixes`
 
-Do not put durable local fixes directly on `main`. Keeping `main` clean makes
-upstream intake simple and makes local deltas easy to review.
+Do not put durable local fixes directly on `main` or `upstream-main`.
+`upstream-main` is the managed mirror branch used by the OSS fork manager; keep
+it byte-for-byte aligned with `upstream/main` so local deltas stay reviewable.
 
 ## Upstream Intake
 
@@ -45,12 +46,11 @@ customizations:
 
 ```bash
 git fetch upstream --prune
-git checkout main
+git checkout upstream-main
 git merge --ff-only upstream/main
-git push origin main
 
 git checkout mase/local-fixes
-git rebase main
+git rebase upstream-main
 git push origin mase/local-fixes
 ```
 
@@ -80,7 +80,7 @@ checked-out fork branch:
 
 ```bash
 git checkout mase/local-fixes
-git rebase main
+git rebase upstream-main
 scripts/mase-install-fork.sh --runtime codex --local --target /path/to/project
 ```
 
@@ -91,9 +91,9 @@ scripts/mase-install-fork.sh --runtime codex --global
 ```
 
 The wrapper builds generated hook assets from this repository, refuses to
-install from `main` by default, and runs the installer from the target project
-directory for local installs. Set `GSD_ALLOW_MAIN_INSTALL=1` only when you
-intentionally want the clean upstream mirror.
+install from `main` or `upstream-main` by default, and runs the installer from
+the target project directory for local installs. Set `GSD_ALLOW_MIRROR_INSTALL=1`
+only when you intentionally want to install from a clean upstream mirror.
 
 Fork installs write a source marker outside GSD's wiped managed tree:
 
@@ -175,4 +175,4 @@ Closeout for sync or local-fix work should include:
 - upstream base commit
 - local commits added or replayed
 - validation commands run
-- whether `origin/main` and/or `origin/mase/local-fixes` were pushed
+- whether `origin/mase/local-fixes` was pushed

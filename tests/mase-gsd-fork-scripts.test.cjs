@@ -169,6 +169,15 @@ describe('Mase GSD fork propagation', () => {
     );
   });
 
+  test('wrapper treats upstream-main as a protected mirror branch', () => {
+    const script = fs.readFileSync(installScript, 'utf8');
+
+    assert.match(script, /\$branch" = "main"/);
+    assert.match(script, /\$branch" = "upstream-main"/);
+    assert.match(script, /GSD_ALLOW_MIRROR_INSTALL/);
+    assert.match(script, /clean upstream mirror/);
+  });
+
   test('dry-run works with default roots', () => {
     const output = run(propagateScript, ['--runtime', 'codex', '--dry-run']);
 

@@ -19,7 +19,7 @@ only to `origin`.
 
 ## Branch Model
 
-- Keep `main` as the clean upstream mirror.
+- Keep `upstream-main` as the clean upstream mirror.
 - Keep durable Mase-specific customizations on `mase/local-fixes`.
 - Use short task branches from `mase/local-fixes` for individual fixes.
 
@@ -29,11 +29,10 @@ Use one-way upstream intake:
 
 ```bash
 git fetch upstream --prune
-git checkout main
+git checkout upstream-main
 git merge --ff-only upstream/main
-git push origin main
 git checkout mase/local-fixes
-git rebase main
+git rebase upstream-main
 git push origin mase/local-fixes
 ```
 
