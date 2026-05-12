@@ -159,6 +159,9 @@ function buildNewProjectConfig(userChoices) {
     brave_search: hasBraveSearch,
     firecrawl: hasFirecrawl,
     exa_search: hasExaSearch,
+    commit: {
+      required_trailers: CONFIG_DEFAULTS.commit_required_trailers,
+    },
     git: {
       branching_strategy: CONFIG_DEFAULTS.branching_strategy,
       phase_branch_template: CONFIG_DEFAULTS.phase_branch_template,
@@ -217,6 +220,11 @@ function buildNewProjectConfig(userChoices) {
       ...hardcoded.git,
       ...(userDefaults.git || {}),
       ...(choices.git || {}),
+    },
+    commit: {
+      ...hardcoded.commit,
+      ...(userDefaults.commit || {}),
+      ...(choices.commit || {}),
     },
     workflow: {
       ...hardcoded.workflow,

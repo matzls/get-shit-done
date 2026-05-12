@@ -83,6 +83,134 @@ export function sanitizeCommitMessage(text: string): string {
   return sanitized;
 }
 
+interface ParsedCommitArgs {
+  message?: string;
+  files: string[];
+  trailers: string[];
+  hasForce: boolean;
+  hasAmend: boolean;
+  hasNoVerify: boolean;
+  filesFlagSeen: boolean;
+  error?: string;
+}
+
+const COMMIT_FLAGS_WITH_VALUES = new Set(['--files', '--trailer']);
+const COMMIT_BOOLEAN_FLAGS = new Set(['--force', '--amend', '--no-verify']);
+const COMMIT_KNOWN_FLAGS = new Set([...COMMIT_FLAGS_WITH_VALUES, ...COMMIT_BOOLEAN_FLAGS]);
+
+export function parseCommitArgs(args: string[]): ParsedCommitArgs {
+  const messageParts: string[] = [];
+  const files: string[] = [];
+  const trailers: string[] = [];
+  let hasForce = false;
+  let hasAmend = false;
+  let hasNoVerify = false;
+  let filesFlagSeen = false;
+  let mode: 'message' | 'files' = 'message';
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+
+    if (arg === '--force') {
+      hasForce = true;
+      continue;
+    }
+    if (arg === '--amend') {
+      hasAmend = true;
+      continue;
+    }
+    if (arg === '--no-verify') {
+      hasNoVerify = true;
+      continue;
+    }
+    if (arg === '--trailer') {
+      const trailer = args[i + 1];
+      if (!trailer || COMMIT_KNOWN_FLAGS.has(trailer)) {
+        return { files, trailers, hasForce, hasAmend, hasNoVerify, filesFlagSeen, error: '--trailer requires a value' };
+      }
+      trailers.push(trailer);
+      i += 1;
+      continue;
+    }
+    if (arg === '--files') {
+      filesFlagSeen = true;
+      mode = 'files';
+      continue;
+    }
+
+    if (mode === 'files') {
+      // Preserve the legacy safety behavior: tokens that look like unknown
+      // options are not treated as pathspecs.
+      if (!arg.startsWith('--')) files.push(arg);
+      continue;
+    }
+
+    messageParts.push(arg);
+  }
+
+  return {
+    message: messageParts.join(' ') || undefined,
+    files,
+    trailers,
+    hasForce,
+    hasAmend,
+    hasNoVerify,
+    filesFlagSeen,
+  };
+}
+
+function normalizeTrailer(trailer: string): string | null {
+  const trimmed = trailer.trim();
+  if (!trimmed) return null;
+  if (!/^[A-Za-z0-9-]+:\s+\S/.test(trimmed)) return null;
+  return trimmed.replace(/\s+/g, ' ');
+}
+
+function uniqueTrailers(trailers: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const trailer of trailers) {
+    const normalized = normalizeTrailer(trailer);
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(normalized);
+  }
+  return out;
+}
+
+export function appendRequiredTrailers(message: string, trailers: string[]): string {
+  const required = uniqueTrailers(trailers);
+  if (required.length === 0) return message;
+
+  const lines = message.replace(/\s+$/g, '').split('\n');
+  const existing = new Set(lines.map(line => normalizeTrailer(line) ?? '').filter(Boolean).map(line => line.toLowerCase()));
+  const missing = required.filter(trailer => !existing.has(trailer.toLowerCase()));
+  if (missing.length === 0) return lines.join('\n');
+
+  const trimmedMessage = lines.join('\n').replace(/\s+$/g, '');
+  return `${trimmedMessage}\n\n${missing.join('\n')}`;
+}
+
+async function readCommitConfig(projectDir: string, workstream?: string): Promise<{ commit_docs?: unknown; trailers: string[] }> {
+  const paths = planningPaths(projectDir, workstream);
+  try {
+    const raw = await readFile(paths.config, 'utf-8');
+    const config = JSON.parse(raw) as Record<string, unknown>;
+    const commit = config.commit as Record<string, unknown> | undefined;
+    return {
+      commit_docs: config.commit_docs,
+      trailers: Array.isArray(commit?.required_trailers)
+        ? commit.required_trailers.filter((v): v is string => typeof v === 'string')
+        : [],
+    };
+  } catch {
+    // No config or malformed — preserve existing commit behavior.
+    return { trailers: [] };
+  }
+}
+
 // ─── commit ───────────────────────────────────────────────────────────────
 
 /**
@@ -96,46 +224,35 @@ export function sanitizeCommitMessage(text: string): string {
  * @returns QueryResult with commit result
  */
 export const commit: QueryHandler = async (args, projectDir, workstream) => {
-  const allArgs = [...args];
+  const parsed = parseCommitArgs(args);
+  if (parsed.error) {
+    return { data: { committed: false, reason: parsed.error } };
+  }
 
-  // Extract flags
-  const hasForce = allArgs.includes('--force');
-  const hasAmend = allArgs.includes('--amend');
-  const hasNoVerify = allArgs.includes('--no-verify');
-  const filesIndex = allArgs.indexOf('--files');
-  const endIndex = filesIndex !== -1 ? filesIndex : allArgs.length;
-  // CodeRabbit #6: don't strip arbitrary `--foo` tokens from commit messages
-  const knownFlags = new Set(['--force', '--amend', '--no-verify']);
-  const messageArgs = allArgs.slice(0, endIndex).filter(a => !knownFlags.has(a));
-  const message = messageArgs.join(' ') || undefined;
-  const filePaths =
-    filesIndex !== -1 ? allArgs.slice(filesIndex + 1).filter(a => !a.startsWith('--')) : [];
+  const { message, files: filePaths, hasForce, hasAmend, hasNoVerify } = parsed;
 
   if (!message && !hasAmend) {
     return { data: { committed: false, reason: 'commit message required' } };
   }
 
+  const config = await readCommitConfig(projectDir, workstream);
+
   // Check commit_docs config unless --force
   if (!hasForce) {
-    const paths = planningPaths(projectDir, workstream);
-    try {
-      const raw = await readFile(paths.config, 'utf-8');
-      const config = JSON.parse(raw) as Record<string, unknown>;
-      if (config.commit_docs === false) {
-        return { data: { committed: false, reason: 'commit_docs disabled' } };
-      }
-    } catch {
-      // No config or malformed — allow commit
+    if (config.commit_docs === false) {
+      return { data: { committed: false, reason: 'commit_docs disabled' } };
     }
   }
 
   // Sanitize message
-  const sanitized = message ? sanitizeCommitMessage(message) : message;
+  let sanitized = message ? sanitizeCommitMessage(message) : message;
+  const trailers = [...config.trailers, ...parsed.trailers];
+  if (sanitized) sanitized = appendRequiredTrailers(sanitized, trailers);
 
   // If --files was passed explicitly, the caller asked for an explicit scope.
   // Falling back to .planning/ when every following token got filtered out
   // would silently swap the requested scope, so reject the call instead.
-  if (filesIndex !== -1 && filePaths.length === 0) {
+  if (parsed.filesFlagSeen && filePaths.length === 0) {
     return { data: { committed: false, reason: '--files requires at least one path' } };
   }
 
@@ -161,9 +278,19 @@ export const commit: QueryHandler = async (args, projectDir, workstream) => {
   // Build commit command. The trailing `-- pathsToCommit` ensures the commit
   // captures only files within the requested scope, even when the caller's
   // index already had unrelated entries staged before this handler ran.
-  const commitArgs: string[] = hasAmend
-    ? ['commit', '--amend', '--no-edit']
-    : ['commit', '-m', sanitized ?? ''];
+  const amendNeedsMessageRewrite = hasAmend && trailers.length > 0;
+  let commitArgs: string[];
+  if (hasAmend && amendNeedsMessageRewrite) {
+    const headMessage = execGit(projectDir, ['log', '-1', '--format=%B']);
+    if (headMessage.exitCode !== 0) {
+      return { data: { committed: false, reason: headMessage.stderr || 'failed to read HEAD commit message', exitCode: headMessage.exitCode } };
+    }
+    commitArgs = ['commit', '--amend', '-m', appendRequiredTrailers(headMessage.stdout, trailers)];
+  } else {
+    commitArgs = hasAmend
+      ? ['commit', '--amend', '--no-edit']
+      : ['commit', '-m', sanitized ?? ''];
+  }
   if (hasNoVerify) commitArgs.push('--no-verify');
   commitArgs.push('--', ...pathsToCommit);
 

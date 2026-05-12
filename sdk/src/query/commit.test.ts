@@ -122,6 +122,50 @@ describe('commit', () => {
     expect(log).toBe('docs: update state');
   });
 
+  it('appends --trailer values exactly once', async () => {
+    const { commit } = await import('./commit.js');
+    await writeFile(
+      join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ commit_docs: true }),
+    );
+    await writeFile(join(tmpDir, '.planning', 'STATE.md'), '# State\n');
+
+    const trailer = 'Co-authored-by: Codex <noreply@openai.com>';
+    const result = await commit([
+      'docs: update state',
+      '--trailer',
+      trailer,
+      '--trailer',
+      trailer,
+      '--files',
+      '.planning/STATE.md',
+    ], tmpDir);
+    expect((result.data as { committed: boolean }).committed).toBe(true);
+
+    const log = execSync('git log -1 --format=%B', { cwd: tmpDir, encoding: 'utf-8' }).trim();
+    expect(log).toBe(`docs: update state\n\n${trailer}`);
+  });
+
+  it('appends configured required trailers and preserves existing trailers', async () => {
+    const { commit } = await import('./commit.js');
+    const trailer = 'Co-authored-by: Codex <noreply@openai.com>';
+    await writeFile(
+      join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ commit_docs: true, commit: { required_trailers: [trailer] } }),
+    );
+    await writeFile(join(tmpDir, '.planning', 'STATE.md'), '# State\n');
+
+    const result = await commit([
+      `docs: update state\n\nReviewed-by: Mase <mase@example.com>\n${trailer}`,
+      '--files',
+      '.planning/STATE.md',
+    ], tmpDir);
+    expect((result.data as { committed: boolean }).committed).toBe(true);
+
+    const log = execSync('git log -1 --format=%B', { cwd: tmpDir, encoding: 'utf-8' }).trim();
+    expect(log).toBe(`docs: update state\n\nReviewed-by: Mase <mase@example.com>\n${trailer}`);
+  });
+
   it('returns nothing staged when no files match', async () => {
     const { commit } = await import('./commit.js');
     await writeFile(
@@ -286,6 +330,25 @@ describe('commit pathspec scope (#3061)', () => {
 
     const status = execSync('git status --porcelain', { cwd: tmpDir, encoding: 'utf-8' });
     expect(status).toMatch(/^D {2}README\.md/m);
+  });
+
+  it('--amend appends configured trailers while preserving the HEAD message', async () => {
+    const { commit } = await import('./commit.js');
+    const trailer = 'Co-authored-by: Codex <noreply@openai.com>';
+    await writeFile(
+      join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ commit_docs: true, commit: { required_trailers: [trailer] } }),
+    );
+    await writeFile(join(tmpDir, '.planning', 'STATE.md'), '# State v1\n');
+    execSync('git add .planning/STATE.md', { cwd: tmpDir, stdio: 'pipe' });
+    execSync('git commit -m "docs: initial state"', { cwd: tmpDir, stdio: 'pipe' });
+
+    await writeFile(join(tmpDir, '.planning', 'STATE.md'), '# State v2\n');
+    const result = await commit(['ignored message', '--amend', '--files', '.planning/STATE.md'], tmpDir);
+    expect((result.data as { committed: boolean }).committed).toBe(true);
+
+    const log = execSync('git log -1 --format=%B', { cwd: tmpDir, encoding: 'utf-8' }).trim();
+    expect(log).toBe(`docs: initial state\n\n${trailer}`);
   });
 });
 

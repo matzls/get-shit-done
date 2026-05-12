@@ -8,6 +8,9 @@ Configuration options for `.planning/` directory behavior.
   "commit_docs": true,
   "search_gitignored": false
 },
+"commit": {
+  "required_trailers": []
+},
 "git": {
   "branching_strategy": "none",
   "base_branch": null,
@@ -27,6 +30,7 @@ Configuration options for `.planning/` directory behavior.
 | Option | Default | Description |
 |--------|---------|-------------|
 | `commit_docs` | `true` | Whether to commit planning artifacts to git |
+| `commit.required_trailers` (`commit_required_trailers`) | `[]` | Commit-message trailers appended exactly once by GSD-managed commit commands |
 | `search_gitignored` | `false` | Add `--no-ignore` to broad rg searches |
 | `git.branching_strategy` | `"none"` | Git branching approach: `"none"`, `"phase"`, or `"milestone"` |
 | `git.base_branch` | `null` (auto-detect) | Target branch for PRs and merges (e.g. `"master"`, `"develop"`). When `null`, auto-detects from `git symbolic-ref refs/remotes/origin/HEAD`, falling back to `"main"`. |
@@ -80,6 +84,10 @@ gsd-sdk query commit "docs: update state" --files .planning/STATE.md
 ```
 
 The CLI checks `commit_docs` config and gitignore status internally — no manual conditionals needed.
+
+**Required trailers:** Configure `commit.required_trailers` to satisfy runtime
+commit-message policies without replacing `gsd-sdk query commit` with raw
+`git commit`.
 
 </commit_docs_behavior>
 

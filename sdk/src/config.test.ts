@@ -69,6 +69,7 @@ describe('loadConfig', () => {
     expect(config.workflow.verifier).toBe(true);
     // Top-level defaults preserved
     expect(config.commit_docs).toBe(true);
+    expect(config.commit.required_trailers).toEqual([]);
     expect(config.parallelization).toBe(true);
   });
 
@@ -112,6 +113,17 @@ describe('loadConfig', () => {
 
     const config = await loadConfig(tmpDir);
     expect(config.agent_skills).toEqual({ planner: 'custom-skill' });
+  });
+
+  it('merges commit settings', async () => {
+    const trailer = 'Co-authored-by: Codex <noreply@openai.com>';
+    await writeFile(
+      join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ commit: { required_trailers: [trailer] } }),
+    );
+
+    const config = await loadConfig(tmpDir);
+    expect(config.commit.required_trailers).toEqual([trailer]);
   });
 
   // ─── Negative tests ─────────────────────────────────────────────────────

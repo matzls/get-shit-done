@@ -1,0 +1,196 @@
+{
+  "schema_version": "peer-review-v1",
+  "review_id": "peer-review-f74a5d7e2904",
+  "plan_path": "/private/tmp/gsd-commit-trailer-plan.md",
+  "plan_sha256": "d1b7a0d675db7e0f7d0cc7cf6a04d7c912c9786df9d9f56d06c9cc07f9d58a6a",
+  "mode": "advisory-challenge",
+  "sidecar_dir": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_advisory-reviews",
+  "engine": "GPT",
+  "requested_engine": "codex",
+  "origin_runtime": "codex",
+  "engine_policy": "explicit",
+  "resolved_primary_engine": "codex",
+  "preferred_engine": "codex",
+  "fallback_engine": null,
+  "final_engine": "codex",
+  "reviewer_match": "same_model_fallback",
+  "gate_quality": "preferred",
+  "artifact_role": "diagnostic",
+  "canonical_sidecar_path": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_advisory-reviews/gsd-commit-trailer-plan-peer-review.json",
+  "fallback_used": false,
+  "fallback_reason": null,
+  "attempt_chain": [
+    {
+      "engine": "codex",
+      "phase": "primary",
+      "result": "completed",
+      "returncode": 0
+    }
+  ],
+  "model": "codex",
+  "verdict": null,
+  "stance": "mixed",
+  "issues_count": 5,
+  "ran_at": "2026-05-12T10:40:59.339825+00:00",
+  "raw_review_excerpt": "The plan is directionally sound and scoped with reasonable restraint, but it is not yet sufficiently anchored to repo reality: named files, workflow entrypoints, and amend/message-generation semantics are asserted in the artifact rather than verified against current code or docs.\n\nIssues:\n- 1. [WARN] Repo-pattern anchoring is missing for the named touchpoints\n- 2. [WARN] A key semantic choice is still unresolved at plan time\n- 3. [WARN] Trailer normalization may be less localized than the plan implies\n- 4. [WARN] The mandatory-path goal is broader than the documented audit scope\n- 5. [NOTE] The deferred `commit.verify-last` follow-on depends on an unproven policy contract",
+  "error": null,
+  "closure_verification": "",
+  "prior_round_closure": [],
+  "rerun_recommendation": null,
+  "review": {
+    "mode": "advisory-challenge",
+    "summary": "The plan is directionally sound and scoped with reasonable restraint, but it is not yet sufficiently anchored to repo reality: named files, workflow entrypoints, and amend/message-generation semantics are asserted in the artifact rather than verified against current code or docs.",
+    "rubric_cards": [
+      {
+        "title": "Claim Anchoring",
+        "anchor": "card-1-claim-anchoring",
+        "claim": "The artifact anchors its intended behaviors well, but its repo-specific claims are only partially grounded because concrete file paths and canonical-doc assumptions are not corroborated by inspected repo sources.",
+        "evidence": "Artifact steps 2, 3, and 8 name schema mirrors, `sdk/src/query/commit.ts`, and `get-shit-done/references/git-planning-commit.md`; no directly inspected local file evidence was available in this review.",
+        "disposition": "partial"
+      },
+      {
+        "title": "Disposition Matrix",
+        "anchor": "card-2-disposition-matrix",
+        "claim": "The review can distinguish what is supported by the artifact text from what remains unverified about conversation history and broader campaign context.",
+        "evidence": "Only the supplied plan text and current prompt constraints were used; no prior-round packet, broader thread history, or repo files were inspected.",
+        "disposition": "present"
+      },
+      {
+        "title": "Coverage Scope",
+        "anchor": "card-3-coverage-scope",
+        "claim": "This is a slice review of one plan artifact, not a full-campaign or repo-pattern validation.",
+        "evidence": "The review covered steps 1 through 9 of the supplied document and the stated focus, but not the actual implementation files, docs inventory, or surrounding workflow history.",
+        "disposition": "present"
+      }
+    ],
+    "disposition_matrix": {
+      "rows": [
+        "artifact",
+        "conversation",
+        "campaign"
+      ],
+      "columns": [
+        "present",
+        "partial",
+        "missing"
+      ],
+      "cells": [
+        [
+          "plan-text-used",
+          "repo-claim-anchoring-partial",
+          "no-code-inspection"
+        ],
+        [
+          "scope-constraints-used",
+          "focus-only-no-substantive-facts",
+          "no-prior-round-packet"
+        ],
+        [
+          "single-artifact-covered",
+          "workflow-slice-only",
+          "full-campaign-unassessed"
+        ]
+      ]
+    },
+    "conversation_evidence": {
+      "used": true,
+      "sources": [
+        "conversation: current user prompt constraints",
+        "conversation: current user focus statement"
+      ],
+      "summary": "Conversation evidence was used only to bound scope and explain why repo-grounded verification is absent; it was not used to substantiate technical claims about the implementation plan.",
+      "gaps": [
+        "No prior-round review packet was provided.",
+        "No earlier thread evidence was used to confirm repo history or workflow intent.",
+        "Conversation evidence does not replace missing code/doc inspection."
+      ]
+    },
+    "campaign_coverage": {
+      "scope": "slice-only",
+      "covered": [
+        "The single supplied plan artifact.",
+        "Internal logic and sequencing of steps 1 through 9.",
+        "Risks visible from the artifact text around config, trailers, amend behavior, tests, and docs scope."
+      ],
+      "missing": [
+        "Actual repo files and current implementation patterns.",
+        "Current SDK/config/test/doc entrypoints for commit behavior.",
+        "Broader campaign or thread history beyond this single review request.",
+        "Any prior-round packet or verified closure evidence."
+      ],
+      "gaps": [
+        "Do not read this as a repo-grounded approval of the named paths or patterns.",
+        "The review does not establish that `gsd-sdk query commit` already controls every relevant workflow commit path."
+      ]
+    },
+    "issues": [
+      {
+        "title": "Repo-pattern anchoring is missing for the named touchpoints",
+        "details": "The plan names concrete schema mirrors, a specific SDK file, and a canonical doc path, but the review has no inspected evidence that these are the actual or complete touchpoints in the repo. That weakens feasibility confidence more than the artifact acknowledges.",
+        "suggested_fix": "Before execution, verify that the named files are canonical and sufficient for commit config, CLI parsing, and docs coverage.",
+        "severity": "WARN"
+      },
+      {
+        "title": "A key semantic choice is still unresolved at plan time",
+        "details": "Step 6 leaves amend behavior open between rejecting `--trailer` with `--amend --no-edit` and implementing message reconstruction. That is a load-bearing behavior choice because tests, UX, and edge-case handling all depend on it.",
+        "suggested_fix": "Resolve amend semantics from the current implementation and expected UX before treating the plan as execution-ready.",
+        "severity": "WARN"
+      },
+      {
+        "title": "Trailer normalization may be less localized than the plan implies",
+        "details": "Step 4 assumes exact-once trailer normalization can be added cleanly, but existing trailers, blank-line rules, multiple trailer keys, and CLI-plus-config merge order can create subtle message-construction behavior that may already live outside the obvious CLI parsing layer.",
+        "suggested_fix": "Validate the current message-construction path and acceptance examples before concluding the change is confined to the stated scope.",
+        "severity": "WARN"
+      },
+      {
+        "title": "The mandatory-path goal is broader than the documented audit scope",
+        "details": "The goal says `gsd-sdk query commit` should become the mandatory path for GSD workflow commits, but step 8 only references one canonical doc and some common workflow sections. That does not, by itself, show that all commit entrypoints and instructions are covered.",
+        "suggested_fix": "Inventory workflow entrypoints and commit guidance first so the mandatory-path claim is evaluated against the full surface, not a likely subset.",
+        "severity": "WARN"
+      },
+      {
+        "title": "The deferred `commit.verify-last` follow-on depends on an unproven policy contract",
+        "details": "Step 9 is disciplined about deferring scope, but it assumes last-commit-only verification can be isolated cleanly from broader git-state checks and that trailer policy will be crisp enough to verify deterministically after the first feature lands.",
+        "suggested_fix": "Keep this explicitly separate until trailer behavior and policy boundaries are proven by the first change set and its tests.",
+        "severity": "NOTE"
+      }
+    ],
+    "verification_gaps": [
+      "No local repo files were inspected, so repo-pattern claims are unverified.",
+      "No test files or existing test helpers were inspected, so test-scope completeness is unknown.",
+      "No current CLI option parser behavior was inspected, so repeatable `--trailer` feasibility is inferred, not verified.",
+      "No current commit-message construction path was inspected, so normalization placement is inferred, not verified.",
+      "No workflow/docs inventory was inspected, so the mandatory-path objective may have uncovered surfaces."
+    ],
+    "recommended_fixes": [],
+    "evidence_sources": [
+      "artifact:/private/tmp/gsd-commit-trailer-plan.md (supplied via stdin)",
+      "conversation: current user prompt constraints",
+      "conversation: current user focus statement"
+    ],
+    "error": null,
+    "stance": "mixed",
+    "best_case": "If the named SDK/config/doc touchpoints are in fact canonical, this is a sensible incremental plan: it keeps scope narrow, preserves existing pathspec protections, forces an explicit amend decision, and defers `verify-last` until trailer support is proven.",
+    "strongest_objections": [
+      "The plan makes repo-specific assertions about files, schema mirrors, and canonical docs without verified repo evidence.",
+      "The amend behavior decision is still open even though it drives acceptance criteria, test design, and user-facing semantics.",
+      "Exact-once trailer normalization is easy to describe but often subtle in practice once existing trailers, ordering, and blank-line rules are involved.",
+      "The goal of making `gsd-sdk query commit` mandatory across workflow commits is broader than the artifact's documented audit of entrypoints and docs."
+    ],
+    "hidden_assumptions": [
+      "`gsd-sdk query commit` already sits on every relevant workflow commit path that matters to the goal.",
+      "The SDK and CJS schema mirrors named in the plan are the full set of config touchpoints that need parity updates.",
+      "Current commit-message construction is isolated enough that trailer normalization can be added without unexpected side effects.",
+      "Existing trailers can be preserved and deduplicated with a straightforward exact-once rule across both CLI and config sources.",
+      "The canonical documentation and workflow reminder surfaces are already known well enough that a narrow doc pass will close the behavioral gap."
+    ],
+    "what_would_change_my_mind": "Inspecting the current commit query implementation, config schemas, tests, and commit-related docs and finding that the named files are canonical, the CLI already has a clean repeatable-flag pattern, message construction is centralized, and workflow entrypoints already converge on this one commit path would materially increase confidence.",
+    "next_checks": [
+      "Confirm whether `sdk/src/query/commit.ts` is the actual single entrypoint for workflow commit creation or only one of several paths.",
+      "Inventory every config/schema mirror and docs-parity check that currently governs `commit.*` settings.",
+      "Inspect the existing commit-message builder to determine where trailer parsing, ordering, dedupe, and blank-line normalization actually belong.",
+      "Map workflow commands and docs that still invoke or recommend raw `git commit` so the mandatory-path goal has a verified surface area.",
+      "Decide amend semantics from current behavior and acceptance expectations before finalizing implementation or test scope."
+    ]
+  }
+}

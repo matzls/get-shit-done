@@ -14,6 +14,21 @@ gsd-sdk query commit "docs({scope}): {description}" --files .planning/STATE.md .
 
 The CLI will return `skipped` (with reason) if `commit_docs` is `false` or `.planning/` is gitignored. No manual conditional checks needed.
 
+## Required Commit Trailers
+
+Do not substitute raw `git commit` for `gsd-sdk query commit` when a GSD workflow
+calls for a planning commit. Required commit-message trailers must be handled by
+`commit.required_trailers` config or repeatable `--trailer` flags:
+
+```bash
+gsd-sdk query commit "docs({scope}): {description}" \
+  --trailer "Co-authored-by: Codex <noreply@openai.com>" \
+  --files .planning/STATE.md .planning/ROADMAP.md
+```
+
+If the SDK cannot satisfy a required trailer, stop and report the
+commit-policy conflict instead of bypassing GSD commit handling.
+
 ## Amend previous commit
 
 To fold `.planning/` file changes into the previous commit:

@@ -445,7 +445,7 @@ export const configNewProject: QueryHandler = async (args, projectDir, workstrea
   // Build default config
   const defaults: Record<string, unknown> = {
     model_profile: 'balanced',
-    commit_docs: false,
+    commit_docs: true,
     parallelization: 1,
     search_gitignored: false,
     brave_search: hasBraveSearch,
@@ -481,6 +481,9 @@ export const configNewProject: QueryHandler = async (args, projectDir, workstrea
     hooks: {
       context_warnings: true,
     },
+    commit: {
+      required_trailers: [],
+    },
     project_code: null,
     phase_naming: 'sequential',
     agent_skills: {},
@@ -511,6 +514,11 @@ export const configNewProject: QueryHandler = async (args, projectDir, workstrea
       ...(defaults.hooks as Record<string, unknown>),
       ...((globalDefaults.hooks as Record<string, unknown>) || {}),
       ...((userChoices.hooks as Record<string, unknown>) || {}),
+    },
+    commit: {
+      ...(defaults.commit as Record<string, unknown>),
+      ...((globalDefaults.commit as Record<string, unknown>) || {}),
+      ...((userChoices.commit as Record<string, unknown>) || {}),
     },
     agent_skills: {
       ...((defaults.agent_skills as Record<string, unknown>) || {}),

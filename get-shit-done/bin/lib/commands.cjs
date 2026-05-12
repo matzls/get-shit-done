@@ -248,7 +248,106 @@ function cmdResolveModel(cwd, agentType, raw) {
   output(result, raw, model);
 }
 
-function cmdCommit(cwd, message, files, raw, amend, noVerify) {
+const COMMIT_BOOLEAN_FLAGS = new Set(['--force', '--amend', '--no-verify']);
+const COMMIT_FLAGS_WITH_VALUES = new Set(['--files', '--trailer']);
+const COMMIT_KNOWN_FLAGS = new Set([...COMMIT_BOOLEAN_FLAGS, ...COMMIT_FLAGS_WITH_VALUES]);
+
+function parseCommitArgs(args) {
+  const messageParts = [];
+  const files = [];
+  const trailers = [];
+  let hasForce = false;
+  let hasAmend = false;
+  let hasNoVerify = false;
+  let filesFlagSeen = false;
+  let mode = 'message';
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === '--force') {
+      hasForce = true;
+      continue;
+    }
+    if (arg === '--amend') {
+      hasAmend = true;
+      continue;
+    }
+    if (arg === '--no-verify') {
+      hasNoVerify = true;
+      continue;
+    }
+    if (arg === '--trailer') {
+      const trailer = args[i + 1];
+      if (!trailer || COMMIT_KNOWN_FLAGS.has(trailer)) {
+        return { files, trailers, hasForce, hasAmend, hasNoVerify, filesFlagSeen, error: '--trailer requires a value' };
+      }
+      trailers.push(trailer);
+      i += 1;
+      continue;
+    }
+    if (arg === '--files') {
+      filesFlagSeen = true;
+      mode = 'files';
+      continue;
+    }
+    if (mode === 'files') {
+      if (!arg.startsWith('--')) files.push(arg);
+      continue;
+    }
+    messageParts.push(arg);
+  }
+
+  return {
+    message: messageParts.join(' ') || undefined,
+    files,
+    trailers,
+    hasForce,
+    hasAmend,
+    hasNoVerify,
+    filesFlagSeen,
+  };
+}
+
+function normalizeTrailer(trailer) {
+  const trimmed = String(trailer || '').trim();
+  if (!trimmed) return null;
+  if (!/^[A-Za-z0-9-]+:\s+\S/.test(trimmed)) return null;
+  return trimmed.replace(/\s+/g, ' ');
+}
+
+function uniqueTrailers(trailers) {
+  const seen = new Set();
+  const out = [];
+  for (const trailer of trailers || []) {
+    const normalized = normalizeTrailer(trailer);
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(normalized);
+  }
+  return out;
+}
+
+function appendRequiredTrailers(message, trailers) {
+  const required = uniqueTrailers(trailers);
+  if (required.length === 0) return message;
+
+  const lines = String(message || '').replace(/\s+$/g, '').split('\n');
+  const existing = new Set(
+    lines
+      .map(line => normalizeTrailer(line))
+      .filter(Boolean)
+      .map(line => line.toLowerCase())
+  );
+  const missing = required.filter(trailer => !existing.has(trailer.toLowerCase()));
+  if (missing.length === 0) return lines.join('\n');
+
+  const trimmedMessage = lines.join('\n').replace(/\s+$/g, '');
+  return `${trimmedMessage}\n\n${missing.join('\n')}`;
+}
+
+function cmdCommit(cwd, message, files, raw, amend, noVerify, trailers = [], filesFlagSeen = false) {
   if (!message && !amend) {
     error('commit message required');
   }
@@ -261,6 +360,13 @@ function cmdCommit(cwd, message, files, raw, amend, noVerify) {
   }
 
   const config = loadConfig(cwd);
+  const requiredTrailers = [
+    ...((config.commit && Array.isArray(config.commit.required_trailers)) ? config.commit.required_trailers : []),
+    ...trailers,
+  ];
+  if (message) {
+    message = appendRequiredTrailers(message, requiredTrailers);
+  }
 
   // Check commit_docs config
   if (!config.commit_docs) {
@@ -316,6 +422,11 @@ function cmdCommit(cwd, message, files, raw, amend, noVerify) {
   // Stage files
   const explicitFiles = files && files.length > 0;
   const filesToStage = explicitFiles ? files : ['.planning/'];
+  if (filesFlagSeen && !explicitFiles) {
+    const result = { committed: false, hash: null, reason: '--files requires at least one path' };
+    output(result, raw, 'nothing');
+    return;
+  }
   for (const file of filesToStage) {
     const fullPath = path.join(cwd, file);
     if (!fs.existsSync(fullPath)) {
@@ -334,7 +445,18 @@ function cmdCommit(cwd, message, files, raw, amend, noVerify) {
   }
 
   // Commit (--no-verify skips pre-commit hooks, used by parallel executor agents)
-  const commitArgs = amend ? ['commit', '--amend', '--no-edit'] : ['commit', '-m', message];
+  let commitArgs;
+  if (amend && requiredTrailers.length > 0) {
+    const headMessage = execGit(cwd, ['log', '-1', '--format=%B']);
+    if (headMessage.exitCode !== 0) {
+      const result = { committed: false, hash: null, reason: 'failed_to_read_head_message', error: headMessage.stderr };
+      output(result, raw, 'nothing');
+      return;
+    }
+    commitArgs = ['commit', '--amend', '-m', appendRequiredTrailers(headMessage.stdout, requiredTrailers)];
+  } else {
+    commitArgs = amend ? ['commit', '--amend', '--no-edit'] : ['commit', '-m', message];
+  }
   if (noVerify) commitArgs.push('--no-verify');
   const commitResult = execGit(cwd, commitArgs);
   if (commitResult.exitCode !== 0) {
@@ -1016,6 +1138,8 @@ module.exports = {
   cmdHistoryDigest,
   cmdResolveModel,
   cmdCommit,
+  parseCommitArgs,
+  appendRequiredTrailers,
   cmdCommitToSubrepo,
   cmdSummaryExtract,
   cmdWebsearch,

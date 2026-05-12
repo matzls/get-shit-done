@@ -1198,6 +1198,38 @@ describe('commit command', () => {
     assert.ok(gitLog.includes(output.hash), 'git log should contain the returned hash');
   });
 
+  test('appends trailer flag exactly once', () => {
+    const trailer = 'Co-authored-by: Codex <noreply@openai.com>';
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'test-file.md'), '# Test\n');
+
+    const result = runGsdTools(
+      `commit "test: add test file" --trailer "${trailer}" --trailer "${trailer}" --files .planning/test-file.md`,
+      tmpDir
+    );
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.committed, true, 'should have committed');
+
+    const gitLog = execSync('git log -1 --format=%B', { cwd: tmpDir, encoding: 'utf-8' }).trim();
+    assert.strictEqual(gitLog, `test: add test file\n\n${trailer}`);
+  });
+
+  test('appends configured required trailers', () => {
+    const trailer = 'Co-authored-by: Codex <noreply@openai.com>';
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ commit_docs: true, commit: { required_trailers: [trailer] } })
+    );
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'test-file.md'), '# Test\n');
+
+    const result = runGsdTools('commit "test: add test file" --files .planning/test-file.md', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const gitLog = execSync('git log -1 --format=%B', { cwd: tmpDir, encoding: 'utf-8' }).trim();
+    assert.strictEqual(gitLog, `test: add test file\n\n${trailer}`);
+  });
+
   test('amend mode works without crashing', () => {
     // Create a file and commit it first
     fs.writeFileSync(path.join(tmpDir, '.planning', 'amend-file.md'), '# Initial\n');
@@ -1216,6 +1248,28 @@ describe('commit command', () => {
     // Verify only 2 commits total (initial setup + amended)
     const logCount = execSync('git log --oneline', { cwd: tmpDir, encoding: 'utf-8' }).trim().split('\n').length;
     assert.strictEqual(logCount, 2, 'should have 2 commits (initial + amended)');
+  });
+
+  test('amend mode appends configured required trailers', () => {
+    const trailer = 'Co-authored-by: Codex <noreply@openai.com>';
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ commit_docs: true, commit: { required_trailers: [trailer] } })
+    );
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'amend-file.md'), '# Initial\n');
+    execSync('git add .planning/amend-file.md', { cwd: tmpDir, stdio: 'pipe' });
+    execSync('git commit -m "initial file"', { cwd: tmpDir, stdio: 'pipe' });
+
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'amend-file.md'), '# Amended\n');
+
+    const result = runGsdTools('commit "ignored" --files .planning/amend-file.md --amend', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.committed, true, 'amend should succeed');
+
+    const gitLog = execSync('git log -1 --format=%B', { cwd: tmpDir, encoding: 'utf-8' }).trim();
+    assert.strictEqual(gitLog, `initial file\n\n${trailer}`);
   });
   test('creates strategy branch before first commit when branching_strategy is milestone', () => {
     // Configure milestone branching strategy

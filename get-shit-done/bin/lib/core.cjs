@@ -292,6 +292,7 @@ const CONFIG_DEFAULTS = {
   model_profile: 'balanced',
   commit_docs: true,
   search_gitignored: false,
+  commit_required_trailers: [],
   branching_strategy: 'none',
   phase_branch_template: 'gsd/phase-{phase}-{slug}',
   milestone_branch_template: 'gsd/{milestone}-{slug}',
@@ -487,6 +488,9 @@ function loadConfig(cwd, options = {}) {
         return defaults.commit_docs;
       })(),
       search_gitignored: get('search_gitignored', { section: 'planning', field: 'search_gitignored' }) ?? defaults.search_gitignored,
+      commit: {
+        required_trailers: get('required_trailers', { section: 'commit', field: 'required_trailers' }) ?? defaults.commit_required_trailers,
+      },
       branching_strategy: get('branching_strategy', { section: 'git', field: 'branching_strategy' }) ?? defaults.branching_strategy,
       phase_branch_template: get('phase_branch_template', { section: 'git', field: 'phase_branch_template' }) ?? defaults.phase_branch_template,
       milestone_branch_template: get('milestone_branch_template', { section: 'git', field: 'milestone_branch_template' }) ?? defaults.milestone_branch_template,
@@ -563,6 +567,9 @@ function loadConfig(cwd, options = {}) {
         ...defaults,
         model_profile: globalDefaults.model_profile ?? defaults.model_profile,
         commit_docs: globalDefaults.commit_docs ?? defaults.commit_docs,
+        commit: {
+          required_trailers: globalDefaults.commit?.required_trailers ?? defaults.commit_required_trailers,
+        },
         research: globalDefaults.research ?? defaults.research,
         plan_checker: globalDefaults.plan_checker ?? defaults.plan_checker,
         verifier: globalDefaults.verifier ?? defaults.verifier,

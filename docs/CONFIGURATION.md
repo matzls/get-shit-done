@@ -23,6 +23,9 @@ GSD stores project settings in `.planning/config.json`. Created during `/gsd-new
     "search_gitignored": false,
     "sub_repos": []
   },
+  "commit": {
+    "required_trailers": []
+  },
   "context": null,
   "workflow": {
     "research": true,
@@ -298,6 +301,12 @@ Example:
 | `planning.commit_docs` | boolean | `true` | Whether `.planning/` files are committed to git |
 | `planning.search_gitignored` | boolean | `false` | Add `--no-ignore` to broad searches to include `.planning/` |
 | `planning.sub_repos` | array of strings | `[]` | Paths of nested sub-repos relative to the project root. When set, GSD-aware tooling scopes phase-lookup, path-resolution, and commit operations per sub-repo instead of treating the outer repo as a monorepo |
+
+## Commit Settings
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `commit.required_trailers` | array of strings | `[]` | Commit-message trailers that `gsd-sdk query commit` and legacy `gsd-tools.cjs commit` append exactly once to every GSD-managed commit. Use this for runtime-required trailers such as `Co-authored-by: Codex <noreply@openai.com>` instead of bypassing GSD commit handling with raw `git commit`. |
 
 ### Project-Root Resolution in Multi-Repo Workspaces
 

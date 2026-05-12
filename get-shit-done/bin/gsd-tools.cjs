@@ -531,17 +531,18 @@ async function runCommand(command, args, cwd, raw, defaultValue, originalCommand
     }
 
     case 'commit': {
-      const amend = args.includes('--amend');
-      const noVerify = args.includes('--no-verify');
-      const filesIndex = args.indexOf('--files');
-      // Collect all positional args between command name and first flag,
-      // then join them — handles both quoted ("multi word msg") and
-      // unquoted (multi word msg) invocations from different shells
-      const endIndex = filesIndex !== -1 ? filesIndex : args.length;
-      const messageArgs = args.slice(1, endIndex).filter(a => !a.startsWith('--'));
-      const message = messageArgs.join(' ') || undefined;
-      const files = filesIndex !== -1 ? args.slice(filesIndex + 1).filter(a => !a.startsWith('--')) : [];
-      commands.cmdCommit(cwd, message, files, raw, amend, noVerify);
+      const parsed = commands.parseCommitArgs(args.slice(1));
+      if (parsed.error) error(parsed.error);
+      commands.cmdCommit(
+        cwd,
+        parsed.message,
+        parsed.files,
+        raw,
+        parsed.hasAmend,
+        parsed.hasNoVerify,
+        parsed.trailers,
+        parsed.filesFlagSeen,
+      );
       break;
     }
 

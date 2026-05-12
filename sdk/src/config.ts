@@ -67,6 +67,10 @@ export interface HooksConfig {
   context_warnings: boolean;
 }
 
+export interface CommitConfig {
+  required_trailers: string[];
+}
+
 export interface GSDConfig {
   model_profile: string;
   commit_docs: boolean;
@@ -78,6 +82,7 @@ export interface GSDConfig {
   git: GitConfig;
   workflow: WorkflowConfig;
   hooks: HooksConfig;
+  commit: CommitConfig;
   agent_skills: Record<string, unknown>;
   /** Project slug for branch templates; mirrors gsd-tools `config.project_code`. */
   project_code?: string | null;
@@ -126,6 +131,9 @@ export const CONFIG_DEFAULTS: GSDConfig = {
   },
   hooks: {
     context_warnings: true,
+  },
+  commit: {
+    required_trailers: [],
   },
   agent_skills: {},
   project_code: null,
@@ -212,6 +220,10 @@ function mergeDefaults(parsed: Record<string, unknown>): GSDConfig {
     hooks: {
       ...CONFIG_DEFAULTS.hooks,
       ...(parsed.hooks as Partial<HooksConfig> ?? {}),
+    },
+    commit: {
+      ...CONFIG_DEFAULTS.commit,
+      ...(parsed.commit as Partial<CommitConfig> ?? {}),
     },
     agent_skills: {
       ...CONFIG_DEFAULTS.agent_skills,
