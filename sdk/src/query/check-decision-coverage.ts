@@ -6,10 +6,12 @@
  *   - `check.decision-coverage-plan`  — translation gate, BLOCKING.
  *     Plan-phase calls this after the existing requirements coverage gate.
  *     Each trackable CONTEXT.md decision must appear (by id or normalized
- *     phrase) in at least one PLAN.md `must_haves` / `truths` block or in
- *     the plan body. A miss returns `passed: false` with a clear message
- *     naming the missed decision; the workflow surfaces this to the user
- *     and refuses to mark the phase planned.
+ *     phrase) in at least one designated plan section: frontmatter
+ *     `must_haves`, `truths`, or `objective`, or a body section headed
+ *     `Tasks`, `Objective`, `Must Haves`, or `Truths`. A miss returns
+ *     `passed: false` with a clear message naming the missed decision; the
+ *     workflow surfaces this to the user and refuses to mark the phase
+ *     planned.
  *
  *   - `check.decision-coverage-verify` — validation gate, NON-BLOCKING.
  *     Verify-phase calls this. Each trackable decision is searched in the
@@ -29,7 +31,7 @@
  */
 
 import { readdir, readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join, isAbsolute } from 'node:path';
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -262,6 +264,32 @@ function resolvePath(p: string, projectDir: string): string {
   return isAbsolute(p) ? p : join(projectDir, p);
 }
 
+function pathKind(p: string): 'missing' | 'file' | 'directory' | 'other' {
+  if (!p || !existsSync(p)) return 'missing';
+  try {
+    const stat = statSync(p);
+    if (stat.isFile()) return 'file';
+    if (stat.isDirectory()) return 'directory';
+    return 'other';
+  } catch {
+    return 'missing';
+  }
+}
+
+const PLAN_GATE_USAGE = 'Usage: check.decision-coverage-plan <phase_dir> <context_path>';
+
+function invalidPlanArguments(message: string): PlanGateData {
+  return {
+    passed: false,
+    skipped: false,
+    reason: 'invalid_arguments',
+    total: 0,
+    covered: 0,
+    uncovered: [],
+    message,
+  };
+}
+
 function buildPlanMessage(uncovered: GateUncoveredItem[]): string {
   if (uncovered.length === 0) return 'All trackable CONTEXT.md decisions are covered by plans.';
   const lines = [
@@ -274,9 +302,9 @@ function buildPlanMessage(uncovered: GateUncoveredItem[]): string {
     lines.push(`- **${u.id}** (${u.category || 'uncategorized'}): ${u.text}`);
   }
   lines.push('');
-  lines.push(
-    'Resolve by citing `D-NN:` in a relevant plan\'s `must_haves`/`truths` (or body),',
-  );
+  lines.push('Resolve by citing `D-NN:` in one of the decision coverage locations:');
+  lines.push('- plan frontmatter `must_haves`, `truths`, or `objective`');
+  lines.push('- a body section headed `Tasks`, `Objective`, `Must Haves`, or `Truths`');
   lines.push(
     'OR move the decision to `### Claude\'s Discretion` / tag it `[informational]` if it should not be tracked.',
   );
@@ -318,6 +346,33 @@ export const checkDecisionCoveragePlan: QueryHandler = async (args, projectDir, 
       message: 'Decision coverage gate disabled by config.',
     };
     return { data };
+  }
+
+  const phaseKind = pathKind(phaseDir);
+  const contextKind = pathKind(contextPath);
+
+  if (phaseKind === 'file' && contextKind === 'directory') {
+    return {
+      data: invalidPlanArguments(
+        `${PLAN_GATE_USAGE}\n\nReceived a file as <phase_dir> and a directory as <context_path>; the arguments look reversed.`,
+      ),
+    };
+  }
+
+  if (!phaseDir || phaseKind !== 'directory') {
+    return {
+      data: invalidPlanArguments(
+        `${PLAN_GATE_USAGE}\n\n<phase_dir> must be an existing directory. Received: ${args[0] || '(missing)'}`,
+      ),
+    };
+  }
+
+  if (contextKind !== 'missing' && contextKind !== 'file') {
+    return {
+      data: invalidPlanArguments(
+        `${PLAN_GATE_USAGE}\n\n<context_path> must be a CONTEXT.md file when present. Received: ${args[1] || '(missing)'}`,
+      ),
+    };
   }
 
   if (!contextPath || !existsSync(contextPath)) {

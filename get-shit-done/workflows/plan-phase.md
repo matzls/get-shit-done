@@ -1457,6 +1457,11 @@ silently dropped on the way into the plans.
 (absent key = enabled). Also skip if no CONTEXT.md exists for this phase
 (nothing to translate) or if its `<decisions>` block is empty.
 
+Decision citations must be placed where the gate actually reads them:
+frontmatter `must_haves`, `truths`, or `objective`; or body sections headed
+`Tasks`, `Objective`, `Must Haves`, or `Truths`. Loose notes or arbitrary body
+prose do not satisfy the gate.
+
 ```bash
 GATE_CFG=$(gsd-sdk query config-get workflow.context_coverage_gate 2>/dev/null || echo "true")
 if [ "$GATE_CFG" != "false" ]; then

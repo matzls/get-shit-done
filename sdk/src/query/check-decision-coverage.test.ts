@@ -162,6 +162,35 @@ describe('checkDecisionCoveragePlan — translation gate (#2492)', () => {
     expect(result.data.reason).toMatch(/CONTEXT/);
   });
 
+  it('returns invalid_arguments when phase/context arguments are reversed', async () => {
+    await setupPhase(
+      `<decisions>
+### Cat
+- **D-01:** Trackable decision text long enough to soft-match.
+</decisions>`,
+      { '17-01-PLAN.md': planFile(`  truths: ["D-01"]\n  artifacts: []\n  key_links: []`) },
+    );
+
+    const result = await checkDecisionCoveragePlan([contextPath, phaseDir], tmp);
+    expect(result.data.passed).toBe(false);
+    expect(result.data.skipped).toBe(false);
+    expect(result.data.reason).toBe('invalid_arguments');
+    expect(result.data.message).toMatch(/Usage: check\.decision-coverage-plan <phase_dir> <context_path>/);
+    expect(result.data.message).toMatch(/arguments look reversed/);
+  });
+
+  it('returns invalid_arguments when phase_dir is present but not a directory', async () => {
+    await mkdir(phaseDir, { recursive: true });
+    const notDirectory = join(tmp, 'not-a-phase.md');
+    await writeFile(notDirectory, '# Not a phase dir\n', 'utf-8');
+
+    const result = await checkDecisionCoveragePlan([notDirectory, contextPath], tmp);
+    expect(result.data.passed).toBe(false);
+    expect(result.data.skipped).toBe(false);
+    expect(result.data.reason).toBe('invalid_arguments');
+    expect(result.data.message).toMatch(/<phase_dir> must be an existing directory/);
+  });
+
   it('skips cleanly when <decisions> block is missing', async () => {
     await mkdir(phaseDir, { recursive: true });
     await writeFile(contextPath, '# Phase 17\n\nNo decisions block here.\n', 'utf-8');
@@ -292,6 +321,29 @@ describe('translation gate haystack restriction (review F4)', () => {
     const result = await checkDecisionCoveragePlan([phaseDir, contextPath], tmp);
     expect(result.data.passed).toBe(false);
     expect(result.data.uncovered.map((u: { id: string }) => u.id)).toContain('D-78');
+  });
+
+  it('does NOT count a D-NN citation under a non-designated body heading', async () => {
+    await setupPhase(
+      `<decisions>
+### Cat
+- **D-87:** A trackable decision worth six or more words long
+</decisions>`,
+      {
+        '17-01-PLAN.md': planFile(
+          `  truths: []\n  artifacts: []\n  key_links: []`,
+          '## Notes\n- D-87: visible to rg but not in a gate-counted section.\n',
+        ),
+      },
+    );
+
+    const result = await checkDecisionCoveragePlan([phaseDir, contextPath], tmp);
+    expect(result.data.passed).toBe(false);
+    expect(result.data.covered).toBe(0);
+    expect(result.data.uncovered.map((u: { id: string }) => u.id)).toEqual(['D-87']);
+    expect(result.data.message).toMatch(/decision coverage locations/);
+    expect(result.data.message).toMatch(/frontmatter `must_haves`, `truths`, or `objective`/);
+    expect(result.data.message).toMatch(/`Tasks`, `Objective`, `Must Haves`, or `Truths`/);
   });
 
   it('counts a citation in front-matter `must_haves`', async () => {
