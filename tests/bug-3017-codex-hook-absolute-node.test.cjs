@@ -38,7 +38,12 @@ const path = require('node:path');
 
 const INSTALL = require(path.join(__dirname, '..', 'bin', 'install.js'));
 const projection = require(path.join(__dirname, '..', 'get-shit-done', 'bin', 'lib', 'shell-command-projection.cjs'));
-const { buildCodexHookBlock, rewriteLegacyCodexHookBlock, resolveNodeRunner } = INSTALL;
+const {
+  buildCodexHookBlock,
+  rewriteLegacyCodexHookBlock,
+  resolveNodeRunner,
+  shouldSkipUpdateCheckHook,
+} = INSTALL;
 const { projectCodexHookTomlCommand } = projection;
 
 /**
@@ -132,6 +137,29 @@ describe('Bug #3017: buildCodexHookBlock emits absolute node runner', () => {
     const block = buildCodexHookBlock('/tmp/x/.codex', { absoluteRunner: null });
     assert.equal(block, null,
       'must return null on missing runner so caller can warn-and-skip instead of writing a broken hook');
+  });
+
+  test('returns null when update-check hook registration is suppressed', () => {
+    const block = buildCodexHookBlock('/tmp/x/.codex', {
+      absoluteRunner: '"/usr/local/bin/node"',
+      skipUpdateCheckHook: true,
+    });
+    assert.equal(block, null);
+  });
+
+  test('GSD_SKIP_UPDATE_CHECK_HOOK only suppresses Codex update-check registration', () => {
+    const previousSkip = process.env.GSD_SKIP_UPDATE_CHECK_HOOK;
+    process.env.GSD_SKIP_UPDATE_CHECK_HOOK = '1';
+    try {
+      assert.equal(shouldSkipUpdateCheckHook('codex'), true);
+      assert.equal(shouldSkipUpdateCheckHook('claude'), false);
+    } finally {
+      if (previousSkip === undefined) {
+        delete process.env.GSD_SKIP_UPDATE_CHECK_HOOK;
+      } else {
+        process.env.GSD_SKIP_UPDATE_CHECK_HOOK = previousSkip;
+      }
+    }
   });
 
   test('integrates with resolveNodeRunner() in the live process — runner equals resolved node runner (#3022 CR)', () => {

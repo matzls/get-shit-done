@@ -132,6 +132,10 @@ const installMode = hasMinimal ? 'minimal' : 'full';
 const hasSdk = args.includes('--sdk');
 const hasNoSdk = args.includes('--no-sdk');
 
+function shouldSkipUpdateCheckHook(runtime) {
+  return runtime === 'codex' && process.env.GSD_SKIP_UPDATE_CHECK_HOOK === '1';
+}
+
 if (hasSdk && hasNoSdk) {
   console.error(`  ${yellow}Cannot specify both --sdk and --no-sdk${reset}`);
   process.exit(1);
@@ -747,6 +751,7 @@ function rewriteLegacyManagedNodeHookCommands(settings, absoluteRunner, opts) {
  * @returns {string|null} The toml block to append, or null on missing runner.
  */
 function buildCodexHookBlock(targetDir, opts) {
+  if (opts && opts.skipUpdateCheckHook) return null;
   const absoluteRunner = opts && opts.absoluteRunner;
   if (!absoluteRunner) return null;
   const eol = (opts && opts.eol) || '\n';
@@ -8634,6 +8639,11 @@ function install(isGlobal, runtime = 'claude', options = {}) {
         const srcFile = path.join(codexHooksSrc, entry);
         if (!fs.statSync(srcFile).isFile()) continue;
         const destFile = path.join(codexHooksDest, entry);
+        if (shouldSkipUpdateCheckHook(runtime) && (
+          entry === 'gsd-check-update.js' || entry === 'gsd-check-update-worker.js'
+        )) {
+          continue;
+        }
         if (entry.endsWith('.js')) {
           let content = fs.readFileSync(srcFile, 'utf8');
           content = content.replace(/'\.claude'/g, configDirReplacement);
@@ -8701,7 +8711,12 @@ function install(isGlobal, runtime = 'claude', options = {}) {
       // path is emitted (matching the settings.json branch via #3002), so the
       // hook resolves under GUI/minimal-PATH runtimes where bare `node` doesn't.
       const codexNodeRunner = resolveNodeRunner();
-      const hookBlock = buildCodexHookBlock(targetDir, { absoluteRunner: codexNodeRunner, eol });
+      const skipUpdateCheckHook = shouldSkipUpdateCheckHook(runtime);
+      const hookBlock = buildCodexHookBlock(targetDir, {
+        absoluteRunner: codexNodeRunner,
+        eol,
+        skipUpdateCheckHook,
+      });
 
       if (hasEnabledCodexHooksFeature(configContent)) {
         // Reinstall path: rewrite a legacy bare-node managed-hook entry to the
@@ -8712,7 +8727,7 @@ function install(isGlobal, runtime = 'claude', options = {}) {
           configContent = rewrite.content;
           console.log(`  ${green}✓${reset} Migrated legacy bare-node Codex hook to absolute runner (#3017)`);
         }
-        if (!configContent.includes('gsd-check-update')) {
+        if (!skipUpdateCheckHook && !configContent.includes('gsd-check-update')) {
           if (hookBlock !== null) {
             configContent += hookBlock;
           } else {
@@ -10840,6 +10855,7 @@ if (process.env.GSD_TEST_MODE) {
     buildUpdateBannerPromptText,
     parseUpdateBannerInput,
     buildUpdateBannerHookEntry,
+    shouldSkipUpdateCheckHook,
     buildHookCommand,
     normalizeNodePath,
     resolveNodeRunner,

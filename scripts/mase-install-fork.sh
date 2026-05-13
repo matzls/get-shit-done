@@ -241,6 +241,10 @@ fi
 echo "Building hook assets from $repo_root"
 (cd "$repo_root" && npm run build:hooks)
 
+if [ "$runtime" = "codex" ]; then
+  export GSD_SKIP_UPDATE_CHECK_HOOK="${GSD_SKIP_UPDATE_CHECK_HOOK:-1}"
+fi
+
 if [ "$scope" = "local" ]; then
   echo "Installing Mase fork branch '$branch' into $target for runtime '$runtime'"
   if [ "${#extra_args[@]}" -gt 0 ]; then

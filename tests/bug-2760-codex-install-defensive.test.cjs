@@ -257,6 +257,38 @@ describe('#2760 defect 3 — Hooks AoT preservation across install/uninstall/rei
     assert.strictEqual(sessionStart[0].hooks.length, 1, 'exactly one handler in SessionStart after double install');
     assert.ok(/gsd-check-update\.js/.test(sessionStart[0].hooks[0].command), 'managed handler command preserved');
   });
+
+  test('GSD_SKIP_UPDATE_CHECK_HOOK strips stale GSD update hook and does not re-register it', () => {
+    const previousSkip = process.env.GSD_SKIP_UPDATE_CHECK_HOOK;
+    process.env.GSD_SKIP_UPDATE_CHECK_HOOK = '1';
+    try {
+      const staleConfig = [
+        '[features]',
+        'codex_hooks = true',
+        '',
+        '# GSD Hooks',
+        '[[hooks.SessionStart]]',
+        '',
+        '[[hooks.SessionStart.hooks]]',
+        'type = "command"',
+        'command = "node /old/path/to/gsd-check-update.js"',
+        '',
+      ].join('\n');
+      writeCodexConfig(codexHome, staleConfig);
+
+      runCodexInstall(codexHome);
+      const content = readCodexConfig(codexHome);
+      assert.ok(!content.includes('gsd-check-update'), 'update-check hook must not be re-registered');
+      assert.equal(fs.existsSync(path.join(codexHome, 'hooks', 'gsd-check-update.js')), false);
+      assert.equal(fs.existsSync(path.join(codexHome, 'hooks', 'gsd-check-update-worker.js')), false);
+    } finally {
+      if (previousSkip === undefined) {
+        delete process.env.GSD_SKIP_UPDATE_CHECK_HOOK;
+      } else {
+        process.env.GSD_SKIP_UPDATE_CHECK_HOOK = previousSkip;
+      }
+    }
+  });
 });
 
 describe('#2760 fix 2 — Strip purges invalid legacy [agents] / [[agents]] regardless of marker', () => {
