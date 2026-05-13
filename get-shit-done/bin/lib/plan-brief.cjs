@@ -258,7 +258,7 @@ function flowMermaid(keyLinks, tasks) {
     }
     const startIds = [...outgoing].filter(id => !incoming.has(id));
     if (startIds.length > 0) {
-      lines.splice(2, 0, `  Start(["Start"]) --> ${startIds[0]}`);
+      lines.splice(2, 0, ...startIds.map(id => `  Start(["Start"]) --> ${id}`));
     }
   } else if (tasks.length > 0) {
     lines.push('  Start(["Start"])');
@@ -330,7 +330,9 @@ function flowExplanation(tasks, keyLinks) {
 function extractNonGoals(content) {
   const nonGoals = [];
   const seen = new Set();
-  const body = String(content || '').replace(/^---[\s\S]*?\n---\s*/m, '');
+  const body = String(content || '')
+    .replace(/^---[\s\S]*?\n---\s*/m, '')
+    .replace(/<task\b[^>]*>[\s\S]*?<\/task>/gi, '');
   for (const rawLine of body.split(/\r?\n/)) {
     const line = compactText(rawLine.replace(/^\s*[-*]\s*/, ''), '');
     if (!line || /^(phase|plan|type|wave|depends_on|files_modified|requirements):/i.test(line)) continue;

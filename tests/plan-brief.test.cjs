@@ -175,6 +175,61 @@ describe('gsd-tools plan-brief', () => {
     assert.doesNotMatch(mermaidBlocks, /`/);
   });
 
+  test('non-goals ignore negative success conditions inside task blocks', (t) => {
+    const project = createTempProject('gsd-plan-brief-nongoals-');
+    t.after(() => cleanup(project));
+    const planRel = '.planning/phases/01-baseline/01-01-PLAN.md';
+    const plan = samplePlan()
+      .replace(
+        '<done>The wrapper can run independently and records scanner evidence.</done>',
+        '<done>The command does not regress existing output.</done>'
+      )
+      .replace(
+        '</objective>',
+        '</objective>\n\n<constraints>\nDo not write secrets to logs.\n</constraints>'
+      );
+    writePlan(project, planRel, plan);
+
+    const result = runGsdTools(['plan-brief', planRel], project);
+    assert.equal(result.success, true, result.error);
+    const brief = fs.readFileSync(path.join(project, '.planning/phases/01-baseline/01-01-BRIEF.md'), 'utf8');
+    const nonGoals = brief.slice(brief.indexOf('## What This Does Not Do'), brief.indexOf('## Success Looks Like'));
+
+    assert.match(nonGoals, /Do not write secrets to logs/);
+    assert.doesNotMatch(nonGoals, /does not regress existing output/);
+    assert.match(brief, /Done when the command does not regress existing output/);
+  });
+
+  test('flow diagram connects every independent runtime root to Start', (t) => {
+    const project = createTempProject('gsd-plan-brief-flow-roots-');
+    t.after(() => cleanup(project));
+    const planRel = '.planning/phases/01-baseline/01-01-PLAN.md';
+    const plan = samplePlan().replace(
+      /  key_links:[\s\S]*?---/,
+      `  key_links:
+    - from: "alpha.js"
+      to: "beta.js"
+      via: "calls"
+    - from: "gamma.js"
+      to: "delta.js"
+      via: "calls"
+---`
+    );
+    writePlan(project, planRel, plan);
+
+    const result = runGsdTools(['plan-brief', planRel], project);
+    assert.equal(result.success, true, result.error);
+    const brief = fs.readFileSync(path.join(project, '.planning/phases/01-baseline/01-01-BRIEF.md'), 'utf8');
+    const flowStart = brief.indexOf('## Flow Diagram');
+    const taskStart = brief.indexOf('## Task Summary');
+    const flow = brief.slice(flowStart, taskStart);
+
+    assert.match(flow, /Start\(\["Start"\]\) --> S1/);
+    assert.match(flow, /Start\(\["Start"\]\) --> S3/);
+    assert.match(flow, /S1\["alpha\.js"\] -->\|calls\| S2\["beta\.js"\]/);
+    assert.match(flow, /S3\["gamma\.js"\] -->\|calls\| S4\["delta\.js"\]/);
+  });
+
   test('command, workflow, registry, and plan-phase wiring document BRIEF.md artifacts', () => {
     const root = path.join(__dirname, '..');
     const command = fs.readFileSync(path.join(root, 'commands/gsd/plan-brief.md'), 'utf8');
