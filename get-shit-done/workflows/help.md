@@ -121,16 +121,16 @@ Result: Creates `.planning/phases/01-foundation/01-01-PLAN.md`
 
 **ADR Ingest Express Path:** Pass `--ingest path/to/adr.md` (or a glob) to skip discuss-phase and synthesize CONTEXT.md from approved ADR decisions and scope fences. Cannot be combined with `--prd`.
 
-**`/gsd-plan-brief <plan-path|phase> [--check]`**
+**`/gsd:plan-brief <plan-path|phase> [--check]`**
 Generate or check human-readable brief companions for executable plans.
 
 - Creates `XX-YY-BRIEF.md` beside each matching `XX-YY-PLAN.md`
 - Records a source plan hash so stale briefs can be detected later
 - Use `--check` to verify existing briefs without writing files
 
-Usage: `/gsd-plan-brief 1`
-Usage: `/gsd-plan-brief .planning/phases/01-foundation/01-01-PLAN.md`
-Usage: `/gsd-plan-brief 1 --check`
+Usage: `/gsd:plan-brief 1`
+Usage: `/gsd:plan-brief .planning/phases/01-foundation/01-01-PLAN.md`
+Usage: `/gsd:plan-brief 1 --check`
 
 ### Execution
 

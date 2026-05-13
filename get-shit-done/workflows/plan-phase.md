@@ -1563,22 +1563,12 @@ node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}"
 PLAN_BRIEF_CHECK=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}" --check)
 if [[ "$PLAN_BRIEF_CHECK" == @file:* ]]; then PLAN_BRIEF_CHECK=$(cat "${PLAN_BRIEF_CHECK#@file:}"); fi
 PLAN_BRIEF_PASSED=$(node -e "const p=JSON.parse(process.argv[1]); process.stdout.write(p.passed === true ? 'true' : 'false')" "$PLAN_BRIEF_CHECK")
-if [ "$PLAN_BRIEF_PASSED" != "true" ]; then
-  echo "Plan brief generation/check failed for ${PHASE_DIR}:"
-  echo "$PLAN_BRIEF_CHECK"
-  exit 1
-fi
+if [ "$PLAN_BRIEF_PASSED" != "true" ]; then echo "Plan brief generation/check failed for ${PHASE_DIR}:"; echo "$PLAN_BRIEF_CHECK"; exit 1; fi
 ```
 
-This writes one sibling `*-BRIEF.md` per executable plan. Each brief records the
-LF-normalized SHA-256 `source_plan_hash` of its source plan so stale briefs are
-detectable without asking an LLM to compare documents. The PLAN.md remains the
-authoritative execution artifact; BRIEF.md is the human-readable companion.
+This writes one sibling `*-BRIEF.md` per executable plan with `source_plan_hash`; PLAN.md remains authoritative, and any generation/check failure stops before STATE.md is updated.
 
-Skip this step only if `PLAN_COUNT` is 0. If generation or check fails, stop the
-workflow before updating STATE.md or reporting the phase as planned.
-
-## 13e. Record Planning Completion and Commit Plans
+## 13e. Commit Plans
 
 After ROADMAP annotation and brief generation/check pass, record that planning is
 complete so STATE.md reflects the new phase status:
@@ -1654,49 +1644,8 @@ re-run `/gsd:plan-phase --gaps` to add plans, or proceed to execute-phase as-is.
 
 Route to `<offer_next>` OR `auto_advance` depending on flags/config.
 
-Before presenting the final status, enforce the plan-brief completion invariant:
-when the phase has any `*-PLAN.md` files, every one must have a current sibling
-`*-BRIEF.md`. Re-run the deterministic check, regenerate if any brief is missing
-or stale, then check again. If the second check still fails, stop and report the
-brief-generation failure instead of presenting `PHASE PLANNED`.
-
-```bash
-PLAN_FILES=$(ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null || true)
-if [ -n "$PLAN_FILES" ]; then
-  PLAN_BRIEF_CHECK=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}" --check)
-  if [[ "$PLAN_BRIEF_CHECK" == @file:* ]]; then PLAN_BRIEF_CHECK=$(cat "${PLAN_BRIEF_CHECK#@file:}"); fi
-  PLAN_BRIEF_PASSED=$(node -e "const p=JSON.parse(process.argv[1]); process.stdout.write(p.passed ? 'true' : 'false')" "$PLAN_BRIEF_CHECK")
-  if [ "$PLAN_BRIEF_PASSED" != "true" ]; then
-    node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}"
-    PLAN_BRIEF_CHECK=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}" --check)
-    if [[ "$PLAN_BRIEF_CHECK" == @file:* ]]; then PLAN_BRIEF_CHECK=$(cat "${PLAN_BRIEF_CHECK#@file:}"); fi
-    PLAN_BRIEF_PASSED=$(node -e "const p=JSON.parse(process.argv[1]); process.stdout.write(p.passed ? 'true' : 'false')" "$PLAN_BRIEF_CHECK")
-  fi
-  if [ "$PLAN_BRIEF_PASSED" != "true" ]; then
-    echo "Plan brief generation/check failed for ${PHASE_DIR}:"
-    echo "$PLAN_BRIEF_CHECK"
-    exit 1
-  fi
-fi
-BRIEF_FILES=$(ls "${PHASE_DIR}"/*-BRIEF.md 2>/dev/null || true)
-```
-
-Resolve each listed path with `node -e "process.stdout.write(require('path').resolve(process.argv[1]))" "$FILE"`.
-
-In the inline response, include a `Created/updated:` section that lists every
-PLAN.md and BRIEF.md artifact as a markdown file link using this exact shape:
-
-```markdown
-- [04-01-PLAN.md](/absolute/path/to/04-01-PLAN.md)
-- [04-01-BRIEF.md](/absolute/path/to/04-01-BRIEF.md)
-```
-
-Use the basename as the link label and the absolute file path as the markdown
-target. If the absolute path contains spaces, wrap only the markdown target in
-angle brackets: `[04-01-BRIEF.md](</absolute/path with spaces/04-01-BRIEF.md>)`.
-Do not wrap these links in backticks. The terminal TUI renders these markdown
-file links as clickable, so this section must include the generated `*-BRIEF.md`
-companions directly rather than only giving a `cat .../*-BRIEF.md` command.
+Before presenting the final status, enforce the plan-brief completion invariant: when the phase has any `*-PLAN.md` files, every one must have a current sibling `*-BRIEF.md`. Re-run the deterministic check, regenerate once if any brief is missing or stale, then stop on any remaining failure instead of presenting `PHASE PLANNED`. In the inline response, include `Created/updated:` markdown links for every PLAN.md and BRIEF.md artifact; use basename labels, absolute targets, angle brackets for paths with spaces, and no backticks around links.
+The terminal TUI renders these markdown file links as clickable, for example `[04-01-BRIEF.md](/absolute/path/to/04-01-BRIEF.md)`.
 
 ## 15. Auto-Advance Check
 
