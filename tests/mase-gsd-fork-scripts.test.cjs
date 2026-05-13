@@ -101,6 +101,30 @@ describe('Mase GSD fork install inventory', () => {
     assert.ok(parsed.installs[0].agents_routing_evidence.some((item) => item.startsWith('agents_exists:')));
     assert.ok(parsed.installs[0].agents_routing_data.template_sha256);
   });
+
+  test('excludes managed OSS fork source checkout from local install targets', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mase-gsd-source-skip-'));
+    const sourceRepo = path.join(tmp, 'get-shit-done');
+    const configDir = path.join(sourceRepo, '.codex');
+    fs.mkdirSync(path.join(configDir, 'skills', 'gsd-fork-propagate'), { recursive: true });
+    fs.writeFileSync(path.join(configDir, 'skills', 'gsd-fork-propagate', 'SKILL.md'), '# Fork propagation\n');
+    fs.writeFileSync(path.join(configDir, 'oss-fork-manager.json'), JSON.stringify({
+      schema_version: 1,
+      managed: true,
+      fork_id: 'gsd',
+      kind: 'oss-fork',
+      adapter: 'gsd',
+      registry: path.join(tmp, 'registry.json'),
+      remotes: {},
+      branches: {},
+    }, null, 2) + '\n');
+
+    const parsed = JSON.parse(run(inventoryScript, ['--root', tmp, '--runtime', 'codex', '--json']));
+
+    assert.equal(parsed.installs.length, 0);
+    assert.equal(parsed.skipped_source_checkouts.length, 1);
+    assert.equal(parsed.skipped_source_checkouts[0].target_path, sourceRepo);
+  });
 });
 
 describe('Mase GSD target AGENTS.md routing helper', () => {

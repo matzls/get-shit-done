@@ -10,6 +10,7 @@ Find local/global GSD installs and classify Mase fork-managed installs.
 Defaults:
   --runtime all
   roots: ~/.codex, ~/.claude, /Users/mase/Codebase when present
+  managed OSS fork source checkouts are excluded from local install targets
 EOF
 }
 
@@ -88,6 +89,14 @@ function readJson(p) {
   }
 }
 
+function realMaybe(p) {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return real(p);
+  }
+}
+
 function run(args, cwd) {
   try {
     return cp.execFileSync(args[0], args.slice(1), {
@@ -120,6 +129,53 @@ function hasGsdPayload(configDir) {
   } catch {
     return false;
   }
+}
+
+function registryCandidates() {
+  const candidates = [];
+  if (process.env.OSS_FORK_MANAGER_REGISTRY) candidates.push(process.env.OSS_FORK_MANAGER_REGISTRY);
+  const home = process.env.HOME || '';
+  const codexHome = process.env.CODEX_HOME || (home ? path.join(home, '.codex') : '');
+  if (codexHome) candidates.push(path.join(codexHome, 'oss-fork-manager', 'registry.json'));
+  if (home) candidates.push(path.join(home, '.codex', 'oss-fork-manager', 'registry.json'));
+  return [...new Set(candidates.map((candidate) => real(candidate)))];
+}
+
+function sourceCheckoutPathsFromRegistry() {
+  const out = new Set();
+  for (const candidate of registryCandidates()) {
+    if (!exists(candidate)) continue;
+    const registry = readJson(candidate);
+    if (!registry || registry.__read_error || typeof registry !== 'object') continue;
+    const forks = registry.forks && typeof registry.forks === 'object' ? registry.forks : {};
+    for (const config of Object.values(forks)) {
+      if (!config || typeof config !== 'object') continue;
+      for (const value of [
+        config.checkout,
+        config.provenance && typeof config.provenance === 'object' ? config.provenance.expected_source : null,
+      ]) {
+        if (typeof value === 'string' && value.trim()) out.add(realMaybe(value));
+      }
+    }
+  }
+  return out;
+}
+
+function isRepoLocalSourceMarker(marker) {
+  return Boolean(
+    marker &&
+    !marker.__read_error &&
+    marker.managed === true &&
+    marker.kind === 'oss-fork'
+  );
+}
+
+function isManagedSourceCheckout(targetPath, sourceCheckouts) {
+  const resolved = realMaybe(targetPath);
+  if (sourceCheckouts.has(resolved)) return true;
+  const markerPath = path.join(targetPath, '.codex', 'oss-fork-manager.json');
+  if (!exists(markerPath)) return false;
+  return isRepoLocalSourceMarker(readJson(markerPath));
 }
 
 function isGlobalConfig(configDir, runtime) {
@@ -162,6 +218,8 @@ function collectConfigDirs(root, out, seen) {
 const seen = new Set();
 const configDirs = [];
 for (const root of roots) collectConfigDirs(root, configDirs, seen);
+const sourceCheckouts = sourceCheckoutPathsFromRegistry();
+const skippedSourceCheckouts = [];
 
 const rows = [];
 for (const { configDir, runtime } of configDirs) {
@@ -181,6 +239,15 @@ for (const { configDir, runtime } of configDirs) {
     : scope === 'local'
       ? path.dirname(configDir)
       : configDir;
+  if (scope === 'local' && isManagedSourceCheckout(targetPath, sourceCheckouts)) {
+    skippedSourceCheckouts.push({
+      target_path: targetPath,
+      install_dir: configDir,
+      runtime,
+      reason: 'managed OSS fork source checkout is not a propagation target',
+    });
+    continue;
+  }
   const targetGitStatus = scope === 'local' ? gitStatus(targetPath) : 'not_git';
   let status = 'unknown';
   let reason = 'GSD files found without Mase fork marker';
@@ -248,6 +315,7 @@ if (emitJson) {
   process.stdout.write(JSON.stringify({
     scanned_roots: roots.map(real),
     scanned_runtimes: runtimeFilter === 'all' ? ['codex', 'claude'] : [runtimeFilter],
+    skipped_source_checkouts: skippedSourceCheckouts,
     installs: rows,
   }, null, 2) + '\n');
 } else {
