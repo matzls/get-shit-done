@@ -8,7 +8,7 @@
  * When `runtime` is set to a non-Claude value, profile tiers resolve to runtime-
  * native model IDs.
  *
- *   Codex:   opus -> gpt-5.4 (xhigh), sonnet -> gpt-5.3-codex (medium), haiku -> gpt-5.4-mini (medium)
+ *   Codex:   opus -> gpt-5.5 (xhigh), sonnet -> gpt-5.5 (medium), haiku -> gpt-5.4-mini (xhigh)
  *
  * `runtime: "claude"` is the implicit default and is treated as a no-op for
  * resolution — it does not override `resolve_model_ids: "omit"` or any other
@@ -156,29 +156,29 @@ describe('issue #2517: runtime "codex" — Codex tier resolution', () => {
   beforeEach(() => { isolateHome(); tmpDir = createTempProject(); _resetRuntimeWarningCacheForTests(); });
   afterEach(() => { cleanup(tmpDir); restoreHome(); });
 
-  test('opus tier -> gpt-5.4 with reasoning_effort xhigh', () => {
+  test('opus tier -> gpt-5.5 with reasoning_effort xhigh', () => {
     writeConfig(tmpDir, { runtime: 'codex', model_profile: 'quality' });
-    // gsd-planner quality -> opus -> gpt-5.4
-    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5.4');
+    // gsd-planner quality -> opus -> gpt-5.5
+    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5.5');
     assert.strictEqual(resolveReasoningEffortInternal(tmpDir, 'gsd-planner'), 'xhigh');
   });
 
-  test('sonnet tier -> gpt-5.3-codex with reasoning_effort medium', () => {
+  test('sonnet tier -> gpt-5.5 with reasoning_effort medium', () => {
     writeConfig(tmpDir, { runtime: 'codex', model_profile: 'balanced' });
-    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-roadmapper'), 'gpt-5.3-codex');
+    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-roadmapper'), 'gpt-5.5');
     assert.strictEqual(resolveReasoningEffortInternal(tmpDir, 'gsd-roadmapper'), 'medium');
   });
 
-  test('haiku tier -> gpt-5.4-mini with reasoning_effort medium', () => {
+  test('haiku tier -> gpt-5.4-mini with reasoning_effort xhigh', () => {
     writeConfig(tmpDir, { runtime: 'codex', model_profile: 'budget' });
     assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-codebase-mapper'), 'gpt-5.4-mini');
-    assert.strictEqual(resolveReasoningEffortInternal(tmpDir, 'gsd-codebase-mapper'), 'medium');
+    assert.strictEqual(resolveReasoningEffortInternal(tmpDir, 'gsd-codebase-mapper'), 'xhigh');
   });
 
   test('adaptive profile resolves on Codex (no #1713/#1806 regression)', () => {
     writeConfig(tmpDir, { runtime: 'codex', model_profile: 'adaptive' });
-    // gsd-planner adaptive -> opus -> gpt-5.4
-    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5.4');
+    // gsd-planner adaptive -> opus -> gpt-5.5
+    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5.5');
     // gsd-codebase-mapper adaptive -> haiku -> gpt-5.4-mini
     assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-codebase-mapper'), 'gpt-5.4-mini');
   });
@@ -196,7 +196,7 @@ describe('issue #2517: runtime "codex" — Codex tier resolution', () => {
       model_profile: 'quality',
       resolve_model_ids: 'omit',
     });
-    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5.4');
+    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5.5');
   });
 });
 
@@ -226,8 +226,8 @@ describe('issue #2517: precedence chain', () => {
     // gsd-planner quality -> opus -> overridden to gpt-5-pro
     assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5-pro');
     // haiku not overridden — fall back to spec defaults
-    // gsd-codebase-mapper quality -> sonnet -> gpt-5.3-codex
-    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-codebase-mapper'), 'gpt-5.3-codex');
+    // gsd-codebase-mapper quality -> sonnet -> gpt-5.5
+    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-codebase-mapper'), 'gpt-5.5');
   });
 
   test('partial profile_overrides — only opus overridden, sonnet uses default', () => {
@@ -241,7 +241,7 @@ describe('issue #2517: precedence chain', () => {
     // gsd-planner balanced -> opus -> overridden to gpt-5-pro
     assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5-pro');
     // gsd-roadmapper balanced -> sonnet -> spec default
-    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-roadmapper'), 'gpt-5.3-codex');
+    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-roadmapper'), 'gpt-5.5');
   });
 
   test('per-agent override beats profile override beats default', () => {
@@ -277,13 +277,13 @@ describe('issue #2517: field-merge of overrides with built-in defaults (finding 
   test('partial-object override (no model) keeps model from built-in', () => {
     // `{ codex: { opus: { reasoning_effort: "low" } } }` previously dropped
     // the model entirely (returned undefined and fell through). Post-fix, the
-    // built-in `gpt-5.4` model is preserved and `low` reasoning_effort wins.
+    // built-in `gpt-5.5` model is preserved and `low` reasoning_effort wins.
     writeConfig(tmpDir, {
       runtime: 'codex',
       model_profile: 'quality',
       model_profile_overrides: { codex: { opus: { reasoning_effort: 'low' } } },
     });
-    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5.4');
+    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5.5');
     assert.strictEqual(resolveReasoningEffortInternal(tmpDir, 'gsd-planner'), 'low');
   });
 
@@ -315,7 +315,7 @@ describe('issue #2517: field-merge of overrides with built-in defaults (finding 
       tier: 'opus',
       overrides: { codex: { opus: { reasoning_effort: 'low' } } },
     });
-    assert.deepStrictEqual(entry, { model: 'gpt-5.4', reasoning_effort: 'low' });
+    assert.deepStrictEqual(entry, { model: 'gpt-5.5', reasoning_effort: 'low' });
   });
 
   test('resolveTierEntry helper: unknown runtime + no overrides -> null', () => {
@@ -354,7 +354,7 @@ describe('issue #2517: reasoning_effort allowlist gates regardless of overrides 
     writeConfig(tmpDir, {
       runtime: 'codx',
       model_profile: 'quality',
-      model_profile_overrides: { codx: { opus: { model: 'gpt-5.4', reasoning_effort: 'xhigh' } } },
+      model_profile_overrides: { codx: { opus: { model: 'gpt-5.5', reasoning_effort: 'xhigh' } } },
     });
     assert.strictEqual(resolveReasoningEffortInternal(tmpDir, 'gsd-planner'), null);
   });
@@ -368,9 +368,9 @@ describe('issue #2517: unknown runtime + safe fallback', () => {
 
   test('unknown runtime falls back to Claude-alias safe default (no Codex IDs leaked)', () => {
     writeConfig(tmpDir, { runtime: 'mystery-runtime', model_profile: 'quality' });
-    // Should NOT emit gpt-5.4 — should fall back to Claude alias
+    // Should NOT emit gpt-5.5 — should fall back to Claude alias
     const resolved = resolveModelInternal(tmpDir, 'gsd-planner');
-    assert.notStrictEqual(resolved, 'gpt-5.4');
+    assert.notStrictEqual(resolved, 'gpt-5.5');
     assert.strictEqual(resolved, 'opus');
   });
 
@@ -388,7 +388,7 @@ describe('issue #2517: unknown runtime + safe fallback', () => {
   test('runtime:"codex" but missing model_profile_overrides[codex] uses spec defaults', () => {
     writeConfig(tmpDir, { runtime: 'codex', model_profile: 'quality' });
     // No model_profile_overrides at all — built-in Codex defaults take over
-    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5.4');
+    assert.strictEqual(resolveModelInternal(tmpDir, 'gsd-planner'), 'gpt-5.5');
   });
 });
 
@@ -512,7 +512,7 @@ describe('issue #2517: install end-to-end — per-project config reaches Codex T
     assert.ok(resolver, 'expected a resolver from per-project config');
     assert.strictEqual(resolver.runtime, 'codex');
     const entry = resolver.resolve('gsd-planner');
-    assert.deepStrictEqual(entry, { model: 'gpt-5.4', reasoning_effort: 'xhigh' });
+    assert.deepStrictEqual(entry, { model: 'gpt-5.5', reasoning_effort: 'xhigh' });
   });
 
   test('per-project config wins over global ~/.gsd/defaults.json', () => {
@@ -525,7 +525,7 @@ describe('issue #2517: install end-to-end — per-project config reaches Codex T
     const resolver = readGsdRuntimeProfileResolver(tmpDir);
     assert.strictEqual(resolver.runtime, 'codex');
     const entry = resolver.resolve('gsd-planner');
-    assert.strictEqual(entry.model, 'gpt-5.4');
+    assert.strictEqual(entry.model, 'gpt-5.5');
   });
 
   test('generated Codex TOML embeds model = and model_reasoning_effort = lines', () => {
@@ -537,7 +537,7 @@ describe('issue #2517: install end-to-end — per-project config reaches Codex T
       null,
       resolver
     );
-    assert.match(toml, /^model = "gpt-5\.4"$/m);
+    assert.match(toml, /^model = "gpt-5\.5"$/m);
     assert.match(toml, /^model_reasoning_effort = "xhigh"$/m);
   });
 
@@ -585,7 +585,7 @@ describe('issue #2517: RUNTIME_PROFILE_MAP single source of truth (finding #16)'
     // entries through `resolveTierEntry`, so any future drift between the two
     // files would surface as a test failure here rather than a silent bug.
     const codexOpus = RUNTIME_PROFILE_MAP.codex?.opus;
-    assert.deepStrictEqual(codexOpus, { model: 'gpt-5.4', reasoning_effort: 'xhigh' });
+    assert.deepStrictEqual(codexOpus, { model: 'gpt-5.5', reasoning_effort: 'xhigh' });
     const claudeOpus = RUNTIME_PROFILE_MAP.claude?.opus;
     assert.deepStrictEqual(claudeOpus, { model: 'claude-opus-4-7' });
   });

@@ -13,9 +13,9 @@
       "haiku": { "model": "claude-haiku-4-5" }
     },
     "codex": {
-      "opus": { "model": "gpt-5.4", "reasoning_effort": "xhigh" },
-      "sonnet": { "model": "gpt-5.3-codex", "reasoning_effort": "medium" },
-      "haiku": { "model": "gpt-5.4-mini", "reasoning_effort": "medium" }
+      "opus": { "model": "gpt-5.5", "reasoning_effort": "xhigh" },
+      "sonnet": { "model": "gpt-5.5", "reasoning_effort": "medium" },
+      "haiku": { "model": "gpt-5.4-mini", "reasoning_effort": "xhigh" }
     },
     "gemini": {
       "opus": { "model": "gemini-3-pro" },

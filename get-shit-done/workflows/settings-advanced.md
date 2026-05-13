@@ -344,7 +344,7 @@ Built-in tier defaults by runtime:
 | Runtime    | `opus`                        | `sonnet`                        | `haiku`                       |
 |------------|-------------------------------|---------------------------------|-------------------------------|
 | `claude`   | `claude-opus-4-7`             | `claude-sonnet-4-6`             | `claude-haiku-4-5`            |
-| `codex`    | `gpt-5.4`                     | `gpt-5.3-codex`                 | `gpt-5.4-mini`                |
+| `codex`    | `gpt-5.5`                     | `gpt-5.5`                       | `gpt-5.4-mini`                |
 | `gemini`   | `gemini-3-pro`                | `gemini-3-flash`                | `gemini-2.5-flash-lite`       |
 | `qwen`     | `qwen3-max-2026-01-23`        | `qwen3-coder-plus`              | `qwen3-coder-next`            |
 | `opencode` | `anthropic/claude-opus-4-7`   | `anthropic/claude-sonnet-4-6`   | `anthropic/claude-haiku-4-5`  |

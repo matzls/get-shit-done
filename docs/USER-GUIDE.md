@@ -1247,7 +1247,7 @@ If you want tiered models on Codex without writing a large `model_overrides` blo
 }
 ```
 
-GSD will resolve each agent's tier (`opus`/`sonnet`/`haiku`) to the Codex-native model and reasoning effort defined in the runtime tier map (`gpt-5.4` xhigh / `gpt-5.3-codex` medium / `gpt-5.4-mini` medium). The Codex installer embeds both `model` and `model_reasoning_effort` into each agent's TOML automatically. To override a single tier, add `model_profile_overrides.codex.<tier>`. See [Runtime-Aware Profiles](CONFIGURATION.md#runtime-aware-profiles-2517).
+GSD will resolve each agent's tier (`opus`/`sonnet`/`haiku`) to the Codex-native model and reasoning effort defined in the runtime tier map (`gpt-5.5` xhigh / `gpt-5.5` medium / `gpt-5.4-mini` xhigh). The Codex installer embeds both `model` and `model_reasoning_effort` into each agent's TOML automatically. To override a single tier, add `model_profile_overrides.codex.<tier>`. See [Runtime-Aware Profiles](CONFIGURATION.md#runtime-aware-profiles-2517).
 
 See the [Configuration Reference](CONFIGURATION.md#non-claude-runtimes-codex-opencode-gemini-cli-kilo) for the full explanation.
 

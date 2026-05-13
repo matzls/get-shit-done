@@ -982,7 +982,7 @@ When `runtime` is set, profile tiers (`opus`/`sonnet`/`haiku`) resolve to runtim
 | Runtime | `opus` | `sonnet` | `haiku` | reasoning_effort |
 |---------|--------|----------|---------|------------------|
 | `claude` | `claude-opus-4-7` | `claude-sonnet-4-6` | `claude-haiku-4-5` | (not used) |
-| `codex` | `gpt-5.4` | `gpt-5.3-codex` | `gpt-5.4-mini` | `xhigh` / `medium` / `medium` |
+| `codex` | `gpt-5.5` | `gpt-5.5` | `gpt-5.4-mini` | `xhigh` / `medium` / `xhigh` |
 | `gemini` | `gemini-3-pro` | `gemini-3-flash` | `gemini-2.5-flash-lite` | (not used) |
 | `qwen` | `qwen3-max-2026-01-23` | `qwen3-coder-plus` | `qwen3-coder-next` | (not used) |
 | `opencode` | `anthropic/claude-opus-4-7` | `anthropic/claude-sonnet-4-6` | `anthropic/claude-haiku-4-5` | (not used) |
@@ -999,7 +999,7 @@ When `runtime` is set, profile tiers (`opus`/`sonnet`/`haiku`) resolve to runtim
 }
 ```
 
-This resolves `gsd-planner` → `gpt-5.4` (xhigh), `gsd-executor` → `gpt-5.3-codex` (medium), `gsd-codebase-mapper` → `gpt-5.4-mini` (medium). The Codex installer embeds `model = "..."` and `model_reasoning_effort = "..."` in each generated agent TOML.
+This resolves `gsd-planner` → `gpt-5.5` (xhigh), `gsd-executor` → `gpt-5.5` (medium), `gsd-codebase-mapper` → `gpt-5.4-mini` (xhigh). The Codex installer embeds `model = "..."` and `model_reasoning_effort = "..."` in each generated agent TOML.
 
 **Claude example** — explicit opt-in resolves to full Claude IDs (no `resolve_model_ids: true` needed):
 
