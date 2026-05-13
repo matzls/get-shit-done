@@ -123,12 +123,6 @@ function isKnownGeneratedAgentPath(relPath, runtime) {
   return listKnownGeneratedAgentNames().has(agentName);
 }
 
-function isSuppressedCodexUpdateHookPath(relPath, runtime) {
-  if (runtime !== 'codex') return false;
-  if (process.env.GSD_SKIP_UPDATE_CHECK_HOOK !== '1') return false;
-  return relPath === 'hooks/gsd-check-update.js' || relPath === 'hooks/gsd-check-update-worker.js';
-}
-
 function isStaleGsdLookingPath(relPath) {
   const baseName = path.posix.basename(relPath);
   if (/^gsd[-_]/.test(baseName)) return true;
@@ -188,18 +182,6 @@ module.exports = {
           type: 'record-baseline',
           relPath,
           reason: 'known installer-generated agent included in first-time migration baseline',
-          classification: artifact.classification,
-          originalHash: artifact.originalHash,
-          currentHash,
-        });
-        continue;
-      }
-
-      if (isSuppressedCodexUpdateHookPath(relPath, runtime)) {
-        actions.push({
-          type: 'record-baseline',
-          relPath,
-          reason: 'suppressed Codex update-check hook is known installer-generated and may be retired by this install',
           classification: artifact.classification,
           originalHash: artifact.originalHash,
           currentHash,
