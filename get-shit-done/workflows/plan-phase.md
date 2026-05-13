@@ -1516,15 +1516,27 @@ between discuss-phase and execute-phase; if a decision isn't visible in any
 plan, no executor will implement it. Catching that now beats discovering it
 after thousands of dollars of execution.
 
-## 13b. Record Planning Completion in STATE.md
+## 13b. Recompute Final Plan Set
 
-After plans pass all gates, record that planning is complete so STATE.md reflects the new phase status:
+After plans pass all gates, recompute the executable plan set from disk. Do not
+trust the `plan_count` value from the initial Step 1 snapshot, because fallback,
+manual, chunked, revision, and recovered paths can create or update `*-PLAN.md`
+files after that snapshot was read.
 
 ```bash
-gsd-sdk query state.planned-phase --phase "${PHASE_NUMBER}" --name "${PHASE_NAME}" --plans "${PLAN_COUNT}"
+PLAN_FILES=$(find "${PHASE_DIR}" -maxdepth 1 -type f -name '*-PLAN.md' | sort)
+PLAN_COUNT=$(printf '%s\n' "$PLAN_FILES" | sed '/^$/d' | wc -l | tr -d ' ')
+
+if [ "$PLAN_COUNT" = "0" ]; then
+  echo "No executable PLAN.md files found in ${PHASE_DIR}; skipping post-planning finalization."
+  echo "Phase cannot be marked Ready to execute without at least one executable plan."
+  exit 1
+fi
 ```
 
-This updates STATUS to "Ready to execute", sets the correct plan count, and timestamps Last Activity.
+Every post-planning finalization step below uses this disk-derived `PLAN_COUNT`.
+Brief generation is skipped only when `PLAN_COUNT` is 0; in that case the phase
+must not be marked `Ready to execute`.
 
 ## 13c. Annotate ROADMAP with Wave Dependencies and Cross-cutting Constraints
 
@@ -1538,7 +1550,7 @@ This step is derived entirely from existing PLAN frontmatter — no extra LLM pa
 gsd-sdk query roadmap.annotate-dependencies "${PHASE_NUMBER}"
 ```
 
-This operation is idempotent: if wave headers or cross-cutting constraints already exist in the ROADMAP phase section, the command returns without modifying the file. Skip this step if `plan_count` is 0.
+This operation is idempotent: if wave headers or cross-cutting constraints already exist in the ROADMAP phase section, the command returns without modifying the file. Skip this step only if `PLAN_COUNT` is 0.
 
 ## 13d. Generate Human-Readable Plan Briefs
 
@@ -1548,7 +1560,14 @@ phase directory:
 
 ```bash
 node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}"
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}" --check
+PLAN_BRIEF_CHECK=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" plan-brief "${PHASE_DIR}" --check)
+if [[ "$PLAN_BRIEF_CHECK" == @file:* ]]; then PLAN_BRIEF_CHECK=$(cat "${PLAN_BRIEF_CHECK#@file:}"); fi
+PLAN_BRIEF_PASSED=$(node -e "const p=JSON.parse(process.argv[1]); process.stdout.write(p.passed === true ? 'true' : 'false')" "$PLAN_BRIEF_CHECK")
+if [ "$PLAN_BRIEF_PASSED" != "true" ]; then
+  echo "Plan brief generation/check failed for ${PHASE_DIR}:"
+  echo "$PLAN_BRIEF_CHECK"
+  exit 1
+fi
 ```
 
 This writes one sibling `*-BRIEF.md` per executable plan. Each brief records the
@@ -1556,11 +1575,25 @@ LF-normalized SHA-256 `source_plan_hash` of its source plan so stale briefs are
 detectable without asking an LLM to compare documents. The PLAN.md remains the
 authoritative execution artifact; BRIEF.md is the human-readable companion.
 
-Skip this step only if `plan_count` is 0.
+Skip this step only if `PLAN_COUNT` is 0. If generation or check fails, stop the
+workflow before updating STATE.md or reporting the phase as planned.
 
-## 13e. Commit Plans if commit_docs is true
+## 13e. Record Planning Completion and Commit Plans
 
-If `commit_docs` is true (from the init JSON parsed in step 1), commit the generated plan artifacts (including any ROADMAP.md annotations from step 13c):
+After ROADMAP annotation and brief generation/check pass, record that planning is
+complete so STATE.md reflects the new phase status:
+
+```bash
+gsd-sdk query state.planned-phase --phase "${PHASE_NUMBER}" --name "${PHASE_NAME}" --plans "${PLAN_COUNT}"
+```
+
+This updates STATUS to "Ready to execute", sets the correct disk-derived plan
+count, and timestamps Last Activity. This command must run after brief generation
+passes, never before.
+
+If `commit_docs` is true (from the init JSON parsed in step 1), commit the
+generated plan artifacts, generated brief artifacts, ROADMAP.md annotations, and
+updated STATE.md:
 
 ```bash
 gsd-sdk query commit "docs(${PADDED_PHASE}): create phase plan" --files "${PHASE_DIR}"/*-PLAN.md "${PHASE_DIR}"/*-BRIEF.md .planning/STATE.md .planning/ROADMAP.md
