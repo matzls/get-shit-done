@@ -7829,6 +7829,13 @@ function install(isGlobal, runtime = 'claude', options = {}) {
   // agentsSrc is declared here (let, not const) because installCodexConfig() inside the
   // Codex config block below also references it, and that block is outside the try scope.
   let agentsSrc = path.join(src, 'agents');
+
+  if (shouldSkipUpdateCheckHook(runtime)) {
+    for (const hookName of ['gsd-check-update.js', 'gsd-check-update-worker.js']) {
+      const hookPath = path.join(targetDir, 'hooks', hookName);
+      if (fs.existsSync(hookPath)) fs.unlinkSync(hookPath);
+    }
+  }
   try {
   installerMigrationResult = runInstallerMigrations({
     configDir: targetDir,
@@ -8642,6 +8649,7 @@ function install(isGlobal, runtime = 'claude', options = {}) {
         if (shouldSkipUpdateCheckHook(runtime) && (
           entry === 'gsd-check-update.js' || entry === 'gsd-check-update-worker.js'
         )) {
+          if (fs.existsSync(destFile)) fs.unlinkSync(destFile);
           continue;
         }
         if (entry.endsWith('.js')) {

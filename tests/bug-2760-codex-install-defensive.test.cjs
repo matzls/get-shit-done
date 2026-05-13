@@ -275,6 +275,9 @@ describe('#2760 defect 3 — Hooks AoT preservation across install/uninstall/rei
         '',
       ].join('\n');
       writeCodexConfig(codexHome, staleConfig);
+      fs.mkdirSync(path.join(codexHome, 'hooks'), { recursive: true });
+      fs.writeFileSync(path.join(codexHome, 'hooks', 'gsd-check-update.js'), 'stale hook\n');
+      fs.writeFileSync(path.join(codexHome, 'hooks', 'gsd-check-update-worker.js'), 'stale worker\n');
 
       runCodexInstall(codexHome);
       const content = readCodexConfig(codexHome);
