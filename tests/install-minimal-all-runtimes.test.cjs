@@ -178,7 +178,7 @@ function manifestAgentCount(manifest) {
 }
 
 function expectedSkillSet() {
-  return new Set([...MASE_MINIMAL_SKILL_ALLOWLIST, 'fast', 'thread']);
+  return new Set(MASE_MINIMAL_SKILL_ALLOWLIST);
 }
 
 function expectedAgentCount(runtime) {

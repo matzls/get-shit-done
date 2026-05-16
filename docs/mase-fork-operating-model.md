@@ -150,10 +150,14 @@ The source of truth is:
 get-shit-done/bin/lib/mase-minimal-profile.cjs
 ```
 
-That file contains explicit skill and agent allowlists. Do not derive Mase's
-minimal install from upstream `standard`; upstream can add, remove, or redefine
-that profile during intake, while Mase's install surface should persist until
-Mase deliberately edits the fork-owned list.
+That file contains explicit skill and agent allowlists. The current policy is
+the earlier curated minimal surface: the main GSD loop, the code-review
+checkpoint, the `fast`/`quick` small-task ladder, `help`, `update`, and only
+the required minimal workflow agents.
+
+Do not derive Mase's minimal install from upstream `standard`; upstream can add,
+remove, or redefine that profile during intake, while Mase's install surface
+should persist until Mase deliberately edits the fork-owned list.
 
 Install manifests now record both:
 

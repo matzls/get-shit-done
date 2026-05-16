@@ -50,14 +50,14 @@ describe('PROFILES map', () => {
     assert.strictEqual(PROFILES.full, '*');
   });
 
-  test('Mase minimal is explicit fork policy and larger than upstream standard', () => {
+  test('Mase minimal is explicit curated fork policy smaller than upstream standard', () => {
     assert.deepStrictEqual(
       [...PROFILES[MASE_MINIMAL_PROFILE_NAME]].sort(),
       [...MASE_MINIMAL_SKILL_ALLOWLIST].sort(),
     );
     assert.ok(
-      MASE_MINIMAL_SKILL_ALLOWLIST.length > PROFILES.standard.length,
-      'Mase minimal should remain larger than upstream standard until Mase changes it',
+      MASE_MINIMAL_SKILL_ALLOWLIST.length < PROFILES.standard.length,
+      'Mase minimal should remain a curated smaller global surface until Mase changes it',
     );
   });
 
@@ -178,6 +178,16 @@ describe('resolveProfile', () => {
     const manifest = loadSkillsManifest(REAL_COMMANDS_DIR);
     const result = resolveProfile({ modes: [MASE_MINIMAL_PROFILE_NAME], manifest });
     assert.strictEqual(result.name, MASE_MINIMAL_PROFILE_NAME);
+    assert.deepStrictEqual(
+      [...result.skills].sort(),
+      [...MASE_MINIMAL_SKILL_ALLOWLIST].sort(),
+      'Mase minimal should install the explicit curated skill surface, not dependency-expanded standard',
+    );
+    assert.deepStrictEqual(
+      [...result.agents].sort(),
+      [...MASE_MINIMAL_AGENT_ALLOWLIST].sort(),
+      'Mase minimal should install the explicit curated agent closure',
+    );
     for (const agent of MASE_MINIMAL_AGENT_ALLOWLIST) {
       assert.ok(result.agents.has(agent), `Mase minimal should include ${agent}`);
     }

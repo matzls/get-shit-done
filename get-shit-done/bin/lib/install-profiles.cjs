@@ -60,8 +60,9 @@ const {
  * PROFILES maps profile name → base skill set (array) or '*' sentinel (full).
  *
  * The effective set for any profile is CLOSURE(base, requires: manifest).
- * Mase minimal is intentionally independent of upstream standard; full is
- * the identity (all skills).
+ * Mase minimal is intentionally independent of upstream standard and uses an
+ * explicit curated surface rather than inheriting upstream profile expansion;
+ * full is the identity (all skills).
  *
  * Composition: --profile=core,audit resolves to union(closure(core), closure(audit)).
  */
@@ -270,7 +271,9 @@ function resolveProfile({ modes, manifest, _profilesOverride } = {}) {
       // This profile is full — sentinel short-circuit
       return { name: 'full', skills: '*', agents: new Set() };
     }
-    const closure = computeClosure(base, man);
+    const closure = mode === MASE_MINIMAL_PROFILE_NAME
+      ? new Set(base)
+      : computeClosure(base, man);
     for (const s of closure) unionSkills.add(s);
   }
 
@@ -285,6 +288,9 @@ function resolveProfile({ modes, manifest, _profilesOverride } = {}) {
     }
   }
   if (validModes.includes(MASE_MINIMAL_PROFILE_NAME)) {
+    if (validModes.length === 1) {
+      unionAgents.clear();
+    }
     for (const agentStem of MASE_MINIMAL_AGENT_ALLOWLIST) {
       unionAgents.add(agentStem);
     }
@@ -456,7 +462,7 @@ function writeActiveProfile(runtimeConfigDir, profileName) {
  * Rank ordering for profiles (lower index = more restrictive / smaller skill set).
  * Unknown profiles default to the permissive end (treated as 'full').
  */
-const PROFILE_RANK = Object.freeze(['core', 'standard', MASE_MINIMAL_PROFILE_NAME, 'full']);
+const PROFILE_RANK = Object.freeze(['core', MASE_MINIMAL_PROFILE_NAME, 'standard', 'full']);
 
 /**
  * Given an array of profile names (one per runtime), return the most-restrictive
