@@ -42,6 +42,7 @@ GSD stores project settings in `.planning/config.json`. Created during `/gsd-new
     "discuss_mode": "discuss",
     "max_discuss_passes": 3,
     "skip_discuss": false,
+    "human_verify_mode": "end-of-phase",
     "tdd_mode": false,
     "text_mode": false,
     "use_worktrees": true,
@@ -63,12 +64,27 @@ GSD stores project settings in `.planning/config.json`. Created during `/gsd-new
     "build_command": null,
     "test_command": null
   },
+  "code_quality": {
+    "fallow": {
+      "enabled": false,
+      "scope": "phase",
+      "profile": "standard",
+      "mcp": false
+    }
+  },
   "ship": {
     "pr_body_sections": []
   },
   "hooks": {
     "context_warnings": true,
     "workflow_guard": false
+  },
+  "statusline": {
+    "context_position": "end"
+  },
+  "review": {
+    "default_reviewers": null,
+    "models": {}
   },
   "parallelization": {
     "enabled": true,
@@ -80,6 +96,7 @@ GSD stores project settings in `.planning/config.json`. Created during `/gsd-new
   },
   "git": {
     "branching_strategy": "none",
+    "create_tag": true,
     "phase_branch_template": "gsd/phase-{phase}-{slug}",
     "milestone_branch_template": "gsd/{milestone}-{slug}",
     "quick_branch_template": null
@@ -177,6 +194,24 @@ API key fields accept a string value (the key itself). They can also be set to t
 
 The `<cli>` slug is validated against `[a-zA-Z0-9_-]+`. Empty or path-containing slugs are rejected by `config-set`.
 
+### Reviewer defaults for `/gsd-review`
+
+Use `review.default_reviewers` to scope the no-flag `/gsd-review` run to a subset of detected reviewers.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `review.default_reviewers` | string[] \| null | `null` (all detected reviewers) | Optional default subset for no-flag `/gsd-review`, e.g. `["gemini","codex"]`. Precedence is: explicit reviewer flags > `--all` > `review.default_reviewers` > all detected. Unknown slugs are ignored with a warning; known-but-undetected slugs are ignored with an info note; empty arrays are rejected by `config-set`. |
+
+Example:
+
+```json
+{
+  "review": {
+    "default_reviewers": ["gemini", "codex"]
+  }
+}
+```
+
 ### Agent-skill injection (dynamic)
 
 `agent_skills.<agent-type>` extends the `agent_skills` map documented below. Slug is validated against `[a-zA-Z0-9_-]+` — no path separators, no whitespace, no shell metacharacters. Configured interactively via `/gsd-config --integrations`.
@@ -233,6 +268,17 @@ All workflow toggles follow the **absent = enabled** pattern. If a key is missin
 | `workflow.drift_action` | string | `warn` | What to do when `workflow.drift_threshold` is exceeded after `/gsd-execute-phase`. `warn` prints a message suggesting `/gsd-map-codebase --paths …`; `auto-remap` spawns `gsd-codebase-mapper` scoped to the affected paths. Added in v1.39 |
 | `workflow.build_command` | string | (none) | Shell command to build the project in the post-merge build gate (Step A of step 5.6 in execute-phase). When unset, the gate auto-detects: Xcode (`.xcodeproj` present) → `xcodebuild build`, `Makefile` with `build:` target → `make build`, Justfile → `just build`, `Cargo.toml` → `cargo build`, `go.mod` → `go build ./...`, Python → `python -m py_compile`, `package.json` with `build` script → `npm run build`. Runs with a 5-minute timeout; failure increments `WAVE_FAILURE_COUNT`. Added in v1.39 |
 | `workflow.test_command` | string | (none) | Shell command to run the project's test suite in the post-merge test gate (Step B of step 5.6 in execute-phase) and the regression gate. When unset, the gate auto-detects: Xcode (`.xcodeproj` present) → `xcodebuild test`, `Makefile` with `test:` target → `make test`, Justfile → `just test`, `package.json` → `npm test`, `Cargo.toml` → `cargo test`, `go.mod` → `go test ./...`, Python → `python -m pytest`. Runs with a 5-minute timeout; failure increments `WAVE_FAILURE_COUNT`. Added in v1.39 |
+
+## Code Quality Settings
+
+The `code_quality.*` namespace gates optional structural-analysis tooling that augments `/gsd-code-review`. Settings are additive: each tool is independently opt-in and off by default.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `code_quality.fallow.enabled` | boolean | `false` | Enables fallow structural pre-pass for `/gsd-code-review`. When `false`, no fallow binary probe or JSON artifact is produced. |
+| `code_quality.fallow.scope` | string | `phase` | Scope for fallow analysis: `phase` (current review file scope) or `repo` (entire repository). |
+| `code_quality.fallow.profile` | string | `standard` | Fallow profile selector passed to the pre-pass runner (`minimal`, `standard`, `strict`). |
+| `code_quality.fallow.mcp` | boolean | `false` | **Reserved — not yet implemented.** When `true`, enables MCP-backed structural findings mode for runtimes that support MCP server routing. Setting this to `true` is currently a no-op and emits a runtime warning. |
 
 ## Ship Settings
 
@@ -332,6 +378,7 @@ If `.planning/` is in `.gitignore`, `commit_docs` is automatically `false` regar
 | `hooks.context_warnings` | boolean | `true` | Show context window usage warnings via context monitor hook |
 | `hooks.workflow_guard` | boolean | `false` | Warn when file edits happen outside GSD workflow context (advises using `/gsd-quick` or `/gsd-fast`) |
 | `statusline.show_last_command` | boolean | `false` | Append `last: /<cmd>` suffix to the statusline showing the most recently invoked slash command. Opt-in; reads the active session transcript to extract the latest `<command-name>` tag (closes #2538) |
+| `statusline.context_position` | string | `"end"` | Position of the context-window meter. `"end"` (default) renders at line tail; `"front"` renders immediately after the model name so the meter stays visible in narrow terminals. Closes #2937 |
 
 The prompt injection guard hook (`gsd-prompt-guard.js`) is always active and cannot be disabled — it's a security feature, not a workflow toggle.
 
@@ -429,6 +476,7 @@ Toggle optional capabilities via the `features.*` config namespace. Feature flag
 |---------|------|---------|-------------|
 | `graphify.enabled` | boolean | `false` | Enable the project knowledge graph. When `true`, `/gsd-graphify` builds and queries a graph in `.planning/graphs/`. Added in v1.36 |
 | `graphify.build_timeout` | number (seconds) | `300` | Maximum seconds allowed for a `/gsd-graphify build` run before it aborts. Added in v1.36 |
+| `graphify.auto_update` | boolean | `false` | **Opt-in (issue #3347).** When `true` (and `graphify.enabled` is also `true`), the bundled PostToolUse hook `hooks/gsd-graphify-update.sh` auto-rebuilds the project knowledge graph in a detached background process after `git commit/merge/pull/rebase --continue/cherry-pick` on the default branch (`git.base_branch` override, else `main`/`master`/`trunk`). Hook returns instantly; the rebuild updates `.planning/graphs/{graph.json,graph.html,GRAPH_REPORT.md}` and writes `.planning/graphs/.last-build-status.json` (`{ts, status: "running"\|"ok"\|"failed", exit_code, duration_ms, head_at_build}`). PID-locked, CI-aware (`$CI` env suppresses), bails silently if `graphify` is not on `PATH`. Default `false` so existing behaviour is unchanged after upgrade. |
 
 #### Multi-developer setup
 
@@ -521,6 +569,7 @@ All four fields are **optional and additive** — STATE.md files without them ke
 |---------|------|---------|-------------|
 | `git.branching_strategy` | enum | `none` | `none`, `phase`, or `milestone` |
 | `git.base_branch` | string | `main` | The integration branch that phase/milestone branches are created from and merged back into. Override when your repo uses `master` or a release branch |
+| `git.create_tag` | boolean | `true` | Create a git tag (`v[X.Y]`) on milestone completion. Set to `false` for projects with their own release flow |
 | `git.phase_branch_template` | string | `gsd/phase-{phase}-{slug}` | Branch name template for phase strategy |
 | `git.milestone_branch_template` | string | `gsd/{milestone}-{slug}` | Branch name template for milestone strategy |
 | `git.quick_branch_template` | string or null | `null` | Optional branch name template for `/gsd-quick` tasks |
@@ -670,6 +719,7 @@ Configure per-CLI model selection for `/gsd-review`. When set, overrides the CLI
 | `review.models.ollama` | string | (server default) | Model name passed to Ollama when `--ollama` reviewer is invoked. If unset, the first available model reported by the server is used (e.g. `llama3`). Set to a specific tag: `gsd config-set review.models.ollama codellama` |
 | `review.models.lm_studio` | string | (server default) | Model name passed to LM Studio when `--lm-studio` reviewer is invoked. If unset, the first available model reported by the server is used. |
 | `review.models.llama_cpp` | string | (server default) | Model name passed to llama.cpp when `--llama-cpp` reviewer is invoked. If unset, the first model reported by `/v1/models` is used. |
+| `review.default_reviewers` | string[] \| null | (all detected reviewers) | Default reviewer subset for no-flag `/gsd-review`. Example: `["gemini","codex"]`. Explicit flags and `--all` override this setting. |
 | `review.ollama_host` | string | `http://localhost:11434` | Base URL of the Ollama server. Override when running Ollama on a non-default port or remote host: `gsd config-set review.ollama_host http://192.168.1.10:11434` |
 | `review.lm_studio_host` | string | `http://localhost:1234` | Base URL of the LM Studio local server. Override when using a non-default port. |
 | `review.llama_cpp_host` | string | `http://localhost:8080` | Base URL of the llama.cpp server (`llama-server`). Override when using a non-default port. |
@@ -938,6 +988,10 @@ The `dynamic_routing` block is **disabled by default** — `enabled: false` (or 
 
 ### Non-Claude Runtimes (Codex, OpenCode, Gemini CLI, Kilo)
 
+> **Codex CLI minimum supported version: `0.130.0`** (issue [#3562](https://github.com/gsd-build/get-shit-done/issues/3562)).
+>
+> [Codex CLI 0.130.0](https://github.com/openai/codex/releases/tag/rust-v0.130.0) (released 2026-05-08) removed extra-skills-roots discovery via [openai/codex#21485](https://github.com/openai/codex/pull/21485). From this version forward, Codex CLI only scans `~/.codex/skills/<name>/SKILL.md`, `<project>/.codex/skills/`, and registered plugin roots for invocable skills. GSD installs the `$gsd-*` surface as `~/.codex/skills/gsd-<name>/SKILL.md` so commands resolve after a Codex restart. Earlier Codex CLI versions can show a duplicate listing (the legacy extra-roots scan plus the user-root copies) — restart Codex and either upgrade to ≥ 0.130.0 or accept the duplicates until you do.
+
 When GSD is installed for a non-Claude runtime, the installer automatically sets `resolve_model_ids: "omit"` in `~/.gsd/defaults.json`. This causes GSD to return an empty model parameter for all agents, so each agent uses whatever model the runtime is configured with. No additional setup is needed for the default case.
 
 If you want different agents to use different models, use `model_overrides` with fully-qualified model IDs that your runtime recognizes:
@@ -976,6 +1030,8 @@ The intent is the same as the Claude profile tiers -- use a stronger model for p
 ### Runtime-Aware Profiles (#2517)
 
 When `runtime` is set, profile tiers (`opus`/`sonnet`/`haiku`) resolve to runtime-native model IDs instead of Claude aliases. This lets a single shared `.planning/config.json` work cleanly across Claude and Codex.
+
+`resolve-model` JSON output includes `reasoning_effort` when the runtime tier resolved for the agent (after phase-type overrides) defines a `reasoning_effort`. Runtime adapters may pass that value to child-agent launch calls that support it; runtimes without explicit support omit it.
 
 **Built-in tier maps:**
 

@@ -79,6 +79,44 @@ function pathExists(base: string, relPath: string): boolean {
 }
 
 /**
+ * Bug #3491: detect whether `base` is inside any git worktree, and if so,
+ * return the absolute worktree root. Mirrors the CJS `gitWorktreeInfoInternal`
+ * in get-shit-done/bin/lib/core.cjs — keep these two implementations behaviour-
+ * identical so the SDK and CJS init handlers emit the same has_git semantics.
+ *
+ * Returns { inside, worktreeRoot } — both fall back to false/null on any error
+ * (git unavailable, not a repo, timeout) so callers see the conservative
+ * default that preserves pre-fix behaviour for non-git environments.
+ */
+function gitWorktreeInfo(base: string): { inside: boolean; worktreeRoot: string | null } {
+  try {
+    const inside = execSync('git rev-parse --is-inside-work-tree', {
+      cwd: base,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf-8',
+      timeout: 5000,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+    }).trim();
+    if (inside !== 'true') return { inside: false, worktreeRoot: null };
+    try {
+      const root = execSync('git rev-parse --show-toplevel', {
+        cwd: base,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        encoding: 'utf-8',
+        timeout: 5000,
+        env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+      }).trim();
+      return { inside: true, worktreeRoot: root || null };
+    } catch {
+      return { inside: true, worktreeRoot: null };
+    }
+  } catch {
+    return { inside: false, worktreeRoot: null };
+  }
+}
+
+
+/**
  * Compute the canonical phase directory name for a known phase entry from the
  * roadmap when no directory exists yet.  Applies the project_code prefix so
  * the first-touch creation path used by /gsd-discuss-phase and /gsd-plan-phase
@@ -97,6 +135,19 @@ function computeExpectedPhaseDirName(
   if (!slug) return null;
   const prefix = projectCode ? `${projectCode}-` : '';
   return `${prefix}${paddedNum}-${slug}`;
+}
+
+async function shouldDropArchivedPhaseMatch(
+  phaseInfo: Record<string, unknown> | null,
+  roadmapPhase: Record<string, unknown> | null,
+  projectDir: string,
+  workstream?: string,
+): Promise<boolean> {
+  if (!phaseInfo?.archived || !roadmapPhase || !roadmapPhase.found) return false;
+  const archivedTag = String(phaseInfo.archived ?? '');
+  const milestone = await getMilestoneInfo(projectDir, workstream);
+  if (milestone?.version && archivedTag === milestone.version) return false;
+  return true;
 }
 
 /**
@@ -169,7 +220,7 @@ async function getPhaseInfoWithFallback(
   const roadmapPhase = roadmapResult.data as Record<string, unknown> | null;
 
   // Match init.cjs: drop archived disk match when the phase is listed in the current ROADMAP
-  if (phaseInfo?.archived && roadmapPhase?.found) {
+  if (await shouldDropArchivedPhaseMatch(phaseInfo, roadmapPhase, projectDir, workstream)) {
     phaseInfo = null;
   }
 
@@ -212,7 +263,7 @@ async function getPhaseInfoForVerifyWork(
   const roadmapResult = await roadmapGetPhase([phase], projectDir, workstream);
   const roadmapPhase = roadmapResult.data as Record<string, unknown> | null;
 
-  if (phaseInfo?.archived && roadmapPhase?.found) {
+  if (await shouldDropArchivedPhaseMatch(phaseInfo, roadmapPhase, projectDir, workstream)) {
     phaseInfo = null;
   }
 
@@ -694,7 +745,7 @@ export const initPhaseOp: QueryHandler = async (args, projectDir, workstream) =>
   const roadmapPhase = roadmapResult.data as Record<string, unknown> | null;
 
   // If the only match comes from an archived milestone, prefer current ROADMAP
-  if (phaseInfo?.archived && roadmapPhase?.found) {
+  if (roadmapPhase?.found && await shouldDropArchivedPhaseMatch(phaseInfo, roadmapPhase, projectDir, workstream)) {
     const phaseName = roadmapPhase.phase_name as string;
     phaseInfo = {
       found: true,
@@ -1184,7 +1235,13 @@ export const initIngestDocs: QueryHandler = async (_args, projectDir) => {
   const result: Record<string, unknown> = {
     project_exists: pathExists(projectDir, '.planning/PROJECT.md'),
     planning_exists: pathExists(projectDir, '.planning'),
-    has_git: pathExists(projectDir, '.git'),
+    // Bug #3491: detect parent worktree to avoid nested .git init.
+    has_git: (() => gitWorktreeInfo(projectDir).inside)(),
+    git_worktree_root: (() => gitWorktreeInfo(projectDir).worktreeRoot)(),
+    in_nested_subdir: (() => {
+      const info = gitWorktreeInfo(projectDir);
+      return info.inside && info.worktreeRoot !== null && info.worktreeRoot !== projectDir;
+    })(),
     project_path: '.planning/PROJECT.md',
     commit_docs: config.commit_docs,
   };

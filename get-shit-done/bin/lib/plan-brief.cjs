@@ -6,13 +6,12 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const {
-  atomicWriteFileSync,
   error,
   findPhaseInternal,
-  normalizeMd,
   output,
   toPosixPath,
 } = require('./core.cjs');
+const { normalizeContent, platformWriteSync } = require('./shell-command-projection.cjs');
 const { extractFrontmatter, parseMustHavesBlock } = require('./frontmatter.cjs');
 
 const GENERATOR_ID = 'gsd-plan-brief-v1.2';
@@ -461,7 +460,7 @@ function generateBrief(planPath, content, opts = {}) {
     '',
   ];
 
-  return normalizeMd(lines.join('\n'));
+  return normalizeContent('BRIEF.md', lines.join('\n')).content;
 }
 
 function readBriefFrontmatter(content) {
@@ -503,7 +502,7 @@ function generatePlanBriefs(cwd, target, raw) {
     const content = fs.readFileSync(planPath, 'utf-8');
     const briefPath = planBriefPathFor(planPath);
     const brief = generateBrief(planPath, content);
-    atomicWriteFileSync(briefPath, brief);
+    platformWriteSync(briefPath, brief);
     return {
       plan: toPosixPath(path.relative(cwd, planPath)),
       brief: toPosixPath(path.relative(cwd, briefPath)),

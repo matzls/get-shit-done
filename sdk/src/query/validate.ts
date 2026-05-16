@@ -30,6 +30,15 @@ import type { QueryHandler } from './utils.js';
 const MAX_KEY_LINK_PATTERN_LEN = 512;
 
 /**
+ * Canonical plan stem used for PLAN/SUMMARY matching.
+ * Example: `68-01-scaffolding` -> `68-01`.
+ */
+function canonicalPlanStem(stem: string): string {
+  const m = stem.match(/^(\d+[A-Z]?(?:\.\d+)*-\d+)/i);
+  return m ? m[1] : stem;
+}
+
+/**
  * Build a RegExp for must_haves key_links pattern matching.
  * Long or nested-quantifier patterns fall back to a literal match via escapeRegex.
  */
@@ -526,7 +535,7 @@ export const validateHealth: QueryHandler = async (args, projectDir, workstream)
   try {
     const entries = await readdir(phasesDir, { withFileTypes: true });
     for (const e of entries) {
-      if (e.isDirectory() && !e.name.match(/^\d{2}(?:\.\d+)*-[\w-]+$/)) {
+      if (e.isDirectory() && !e.name.match(/^\d{2,}(?:\.\d+)*-[\w-]+$/)) {
         addIssue('warning', 'W005', `Phase directory "${e.name}" doesn't follow NN-name format`, 'Rename to match pattern (e.g., 01-setup)');
       }
     }
@@ -540,11 +549,17 @@ export const validateHealth: QueryHandler = async (args, projectDir, workstream)
       const phaseFiles = await readdir(join(phasesDir, e.name));
       const plans = phaseFiles.filter(f => f.endsWith('-PLAN.md') || f === 'PLAN.md');
       const summaries = phaseFiles.filter(f => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md');
-      const summaryBases = new Set(summaries.map(s => s.replace('-SUMMARY.md', '').replace('SUMMARY.md', '')));
+      const summaryBases = new Set<string>();
+      for (const summary of summaries) {
+        const summaryBase = summary.replace('-SUMMARY.md', '').replace('SUMMARY.md', '');
+        summaryBases.add(summaryBase);
+        summaryBases.add(canonicalPlanStem(summaryBase));
+      }
 
       for (const plan of plans) {
         const planBase2 = plan.replace('-PLAN.md', '').replace('PLAN.md', '');
-        if (!summaryBases.has(planBase2)) {
+        const canonicalBase = canonicalPlanStem(planBase2);
+        if (!summaryBases.has(planBase2) && !summaryBases.has(canonicalBase)) {
           addIssue('info', 'I001', `${e.name}/${plan} has no SUMMARY.md`, 'May be in progress');
         }
       }
@@ -579,32 +594,74 @@ export const validateHealth: QueryHandler = async (args, projectDir, workstream)
       const roadmapContent = await readFile(roadmapPath, 'utf-8');
       const roadmapPhases = new Set<string>();
       const phasePattern = /#{2,4}\s*Phase\s+(\d+[A-Z]?(?:\.\d+)*)\s*:/gi;
+      const phaseVariants = (phase: string): Set<string> => {
+        const variants = new Set<string>([phase]);
+        const dotIdx = phase.indexOf('.');
+        const head = dotIdx === -1 ? phase : phase.slice(0, dotIdx);
+        const tail = dotIdx === -1 ? '' : phase.slice(dotIdx);
+        const headMatch = head.match(/^(\d+)([A-Z]?)$/i);
+        if (!headMatch) return variants;
+        const numericHead = headMatch[1];
+        const letterSuffix = headMatch[2] || '';
+        variants.add(`${String(parseInt(numericHead, 10))}${letterSuffix}${tail}`);
+        variants.add(`${numericHead.padStart(2, '0')}${letterSuffix}${tail}`);
+        return variants;
+      };
+      const roadmapPhaseVariants = new Set<string>();
       let m: RegExpExecArray | null;
       while ((m = phasePattern.exec(roadmapContent)) !== null) {
         roadmapPhases.add(m[1]);
+        for (const variant of phaseVariants(m[1])) roadmapPhaseVariants.add(variant);
+      }
+      const notStartedPhases = new Set<string>();
+      const uncheckedPattern = /-\s*\[\s\]\s*\*{0,2}Phase\s+(\d+[A-Z]?(?:\.\d+)*)[:\s*]/gi;
+      let um: RegExpExecArray | null;
+      while ((um = uncheckedPattern.exec(roadmapContent)) !== null) {
+        for (const variant of phaseVariants(um[1])) notStartedPhases.add(variant);
       }
 
       const diskPhases = new Set<string>();
+      const activeDiskPhases = new Set<string>();
       try {
         const entries = await readdir(phasesDir, { withFileTypes: true });
         for (const e of entries) {
           if (e.isDirectory()) {
             const dm = e.name.match(/^(\d+[A-Z]?(?:\.\d+)*)/i);
+            if (dm) {
+              diskPhases.add(dm[1]);
+              activeDiskPhases.add(dm[1]);
+            }
+          }
+        }
+      } catch { /* intentionally empty */ }
+      // Include archived milestone phase directories as valid on-disk locations
+      // for historical ROADMAP phases.
+      try {
+        const milestoneEntries = await readdir(join(planBase, 'milestones'), { withFileTypes: true });
+        for (const milestoneEntry of milestoneEntries) {
+          if (!milestoneEntry.isDirectory() || !/-phases$/i.test(milestoneEntry.name)) continue;
+          const archivedPhaseEntries = await readdir(join(planBase, 'milestones', milestoneEntry.name), { withFileTypes: true });
+          for (const archivedPhase of archivedPhaseEntries) {
+            if (!archivedPhase.isDirectory()) continue;
+            const dm = archivedPhase.name.match(/^(\d+[A-Z]?(?:\.\d+)*)/i);
             if (dm) diskPhases.add(dm[1]);
           }
         }
       } catch { /* intentionally empty */ }
 
       for (const p of roadmapPhases) {
-        const padded = String(parseInt(p, 10)).padStart(2, '0');
-        if (!diskPhases.has(p) && !diskPhases.has(padded)) {
+        const variants = phaseVariants(p);
+        const existsOnDisk = [...variants].some((variant) => diskPhases.has(variant));
+        const isNotStarted = [...variants].some((variant) => notStartedPhases.has(variant));
+        if (!existsOnDisk) {
+          if (isNotStarted) continue;
           addIssue('warning', 'W006', `Phase ${p} in ROADMAP.md but no directory on disk`, 'Create phase directory or remove from roadmap');
         }
       }
 
-      for (const p of diskPhases) {
-        const unpadded = String(parseInt(p, 10));
-        if (!roadmapPhases.has(p) && !roadmapPhases.has(unpadded)) {
+      for (const p of activeDiskPhases) {
+        const variants = phaseVariants(p);
+        if (![...variants].some((variant) => roadmapPhaseVariants.has(variant))) {
           addIssue('warning', 'W007', `Phase ${p} exists on disk but not in ROADMAP.md`, 'Add to roadmap or remove directory');
         }
       }
