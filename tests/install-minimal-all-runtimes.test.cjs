@@ -35,7 +35,9 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 
 const {
-  MINIMAL_SKILL_ALLOWLIST,
+  MASE_MINIMAL_AGENT_ALLOWLIST,
+  MASE_MINIMAL_PROFILE_NAME,
+  MASE_MINIMAL_SKILL_ALLOWLIST,
 } = require('../get-shit-done/bin/lib/install-profiles.cjs');
 
 const INSTALL_SCRIPT = path.join(__dirname, '..', 'bin', 'install.js');
@@ -176,7 +178,11 @@ function manifestAgentCount(manifest) {
 }
 
 function expectedSkillSet() {
-  return new Set([...MINIMAL_SKILL_ALLOWLIST]);
+  return new Set([...MASE_MINIMAL_SKILL_ALLOWLIST, 'fast', 'thread']);
+}
+
+function expectedAgentCount(runtime) {
+  return runtime === 'cline' ? 0 : MASE_MINIMAL_AGENT_ALLOWLIST.length;
 }
 
 function expectedManifestSkillSet(runtime) {
@@ -191,7 +197,7 @@ function expectedManifestSkillSet(runtime) {
 
 describe('install: --minimal honoured for every runtime in --global mode', () => {
   for (const runtime of SKILL_RUNTIMES) {
-    test(`${runtime} --global --minimal emits exactly the core skill set, zero agents`, () => {
+    test(`${runtime} --global --minimal emits the Mase minimal skill set and agent surface`, () => {
       const { manifest, root } = runInstall({
         runtime,
         scope: 'global',
@@ -201,13 +207,15 @@ describe('install: --minimal honoured for every runtime in --global mode', () =>
         assert.ok(manifest, `${runtime} global install must produce a manifest`);
         assert.strictEqual(manifest.mode, 'minimal',
           `${runtime} global manifest.mode should be "minimal"`);
+        assert.strictEqual(manifest.profile, MASE_MINIMAL_PROFILE_NAME,
+          `${runtime} global manifest.profile should be Mase minimal`);
         assert.deepStrictEqual(
           [...manifestSkillSet(manifest)].sort(),
           [...expectedManifestSkillSet(runtime)].sort(),
-          `${runtime} global should record exactly the MINIMAL allowlist in the manifest`,
+          `${runtime} global should record exactly the Mase minimal skill surface in the manifest`,
         );
-        assert.strictEqual(manifestAgentCount(manifest), 0,
-          `${runtime} global --minimal should record zero gsd-* agents`);
+        assert.strictEqual(manifestAgentCount(manifest), expectedAgentCount(runtime),
+          `${runtime} global --minimal should record the Mase minimal agent surface`);
       } finally {
         fs.rmSync(root, { recursive: true, force: true });
       }
@@ -217,7 +225,7 @@ describe('install: --minimal honoured for every runtime in --global mode', () =>
 
 describe('install: --minimal honoured for every runtime in --local mode', () => {
   for (const runtime of SKILL_RUNTIMES) {
-    test(`${runtime} --local --minimal emits exactly the core skill set, zero agents`, () => {
+    test(`${runtime} --local --minimal emits the Mase minimal skill set and agent surface`, () => {
       const { manifest, root } = runInstall({
         runtime,
         scope: 'local',
@@ -227,13 +235,15 @@ describe('install: --minimal honoured for every runtime in --local mode', () => 
         assert.ok(manifest, `${runtime} local install must produce a manifest`);
         assert.strictEqual(manifest.mode, 'minimal',
           `${runtime} local manifest.mode should be "minimal"`);
+        assert.strictEqual(manifest.profile, MASE_MINIMAL_PROFILE_NAME,
+          `${runtime} local manifest.profile should be Mase minimal`);
         assert.deepStrictEqual(
           [...manifestSkillSet(manifest)].sort(),
           [...expectedManifestSkillSet(runtime)].sort(),
-          `${runtime} local should record exactly the MINIMAL allowlist in the manifest (regression guard for #2923)`,
+          `${runtime} local should record exactly the Mase minimal skill surface in the manifest`,
         );
-        assert.strictEqual(manifestAgentCount(manifest), 0,
-          `${runtime} local --minimal should record zero gsd-* agents`);
+        assert.strictEqual(manifestAgentCount(manifest), expectedAgentCount(runtime),
+          `${runtime} local --minimal should record the Mase minimal agent surface`);
       } finally {
         fs.rmSync(root, { recursive: true, force: true });
       }
@@ -243,7 +253,7 @@ describe('install: --minimal honoured for every runtime in --local mode', () => 
 
 describe('install: Cline --minimal (rules-based runtime — no skills/ dir)', () => {
   for (const scope of ['global', 'local']) {
-    test(`cline --${scope} --minimal records mode=minimal and zero agents`, () => {
+    test(`cline --${scope} --minimal records mode=minimal and Mase minimal agents`, () => {
       const { manifest, configDir, root } = runInstall({
         runtime: 'cline',
         scope,
@@ -252,8 +262,9 @@ describe('install: Cline --minimal (rules-based runtime — no skills/ dir)', ()
       try {
         assert.ok(manifest, `cline ${scope} install must produce a manifest`);
         assert.strictEqual(manifest.mode, 'minimal');
-        assert.strictEqual(manifestAgentCount(manifest), 0,
-          `cline ${scope} --minimal should record zero gsd-* agents`);
+        assert.strictEqual(manifest.profile, MASE_MINIMAL_PROFILE_NAME);
+        assert.strictEqual(manifestAgentCount(manifest), MASE_MINIMAL_AGENT_ALLOWLIST.length,
+          `cline ${scope} --minimal should record the Mase minimal agent surface`);
 
         // .clinerules exists (Cline embeds the workflow there in lieu of
         // per-skill files).
@@ -292,14 +303,17 @@ describe('install: directory-on-disk matches manifest for --minimal', () => {
             [...inManifest].sort(),
             `${runtime} ${scope}: on-disk skills must match manifest record`,
           );
-          // And no gsd-*.md agent file should exist on disk either:
+          // And the on-disk agent surface should match the manifest:
           const agentsDir = path.join(configDir, 'agents');
           if (fs.existsSync(agentsDir)) {
             const gsdAgents = fs.readdirSync(agentsDir).filter(
               (f) => f.startsWith('gsd-') && f.endsWith('.md'),
             );
-            assert.deepStrictEqual(gsdAgents, [],
-              `${runtime} ${scope} --minimal should not write gsd-*.md agents on disk`);
+            assert.strictEqual(
+              gsdAgents.length,
+              expectedAgentCount(runtime),
+              `${runtime} ${scope} --minimal should write the Mase minimal agent surface on disk`,
+            );
           }
         } finally {
           fs.rmSync(root, { recursive: true, force: true });

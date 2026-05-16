@@ -99,13 +99,11 @@ const {
 } = require(path.join(_gsdLibDir, 'core.cjs'));
 
 const {
-  MINIMAL_SKILL_ALLOWLIST,
+  MASE_MINIMAL_PROFILE_NAME,
   isMinimalMode,
-  stageSkillsForMode,
   readActiveProfile,
   writeActiveProfile,
   resolveEffectiveProfile,
-  mostRestrictiveProfile,
   resolveProfile,
   loadSkillsManifest,
   stageSkillsForProfile,
@@ -155,13 +153,15 @@ const _profileArgRaw = (() => {
   return null;
 })();
 // Resolve active profile name:
-// 1. --minimal / --core-only → 'core' (back-compat alias)
+// 1. --minimal / --core-only → fork-owned Mase minimal profile
 // 2. --profile=<name> → named profile
 // 3. neither → 'full' (default, back-compat)
 // Note: when re-running as `gsd update` the marker is read later (after
 // configDir is resolved) and may override 'full' — see writeActiveProfile call below.
 const _profileIsCore = _profileArgRaw === 'core';
-const _requestedProfileName = (hasMinimal || _profileIsCore) ? 'core' : (_profileArgRaw || null);
+const _requestedProfileName = hasMinimal
+  ? MASE_MINIMAL_PROFILE_NAME
+  : (_profileIsCore ? 'core' : (_profileArgRaw || null));
 const hasSdk = args.includes('--sdk');
 const hasNoSdk = args.includes('--no-sdk');
 
@@ -7414,6 +7414,7 @@ function writeManifest(configDir, runtime = 'claude', options = {}) {
     version: pkg.version,
     timestamp: new Date().toISOString(),
     mode: options.mode === 'minimal' ? 'minimal' : 'full',
+    profile: options.profile || (options.mode === 'minimal' ? MASE_MINIMAL_PROFILE_NAME : 'full'),
     files: {},
   };
 
@@ -7772,44 +7773,34 @@ function install(isGlobal, runtime = 'claude', options = {}) {
   // `command/$HOME/...` (file not found). Use the absolute path for OpenCode so
   // @-references resolve correctly (#2376 Windows, #2831 macOS/Linux).
   // gsd update marker re-application (ADR-0010 Deviation 2):
-  // Resolve which profile to use for this runtime's install:
-  //   1. --minimal / --core-only → back-compat path (stageSkillsForMode keeps strict core allowlist)
-  //   2. Explicit --profile=<name> → use it (overrides any marker)
-  //   3. Marker exists in targetDir → honor it (prevents silent expansion on update)
-  //   4. Else → 'full' (back-compat for fresh non-interactive installs)
-  //
-  // Multi-runtime disagreement: if installing across runtimes and their markers
-  // differ, the caller may use mostRestrictiveProfile() across the per-runtime
-  // results — here we resolve each runtime independently.
-  //
-  // Note: --minimal uses stageSkillsForMode (back-compat: strict allowlist, no closure).
-  // Named profiles (--profile=X or marker-driven) use resolveProfile() for transitive closure.
-  const _activeProfileName = hasMinimal
-    ? 'core'  // --minimal is a back-compat alias for the core profile; marker records 'core'
-    : resolveEffectiveProfile({
-        requestedProfileName: _requestedProfileName,
-        targetDir,
-      });
-  const _isCoreProfileAlias = _activeProfileName === 'core';
-  const _effectiveInstallMode = _isCoreProfileAlias ? 'minimal' : 'full';
-  // Load the manifest and compute resolved profile for named profiles.
-  // --minimal keeps its own staging path via _stageSkillsFn (see below).
+  // Resolve which profile to use for this runtime's install. In Mase's fork,
+  // --minimal is intentionally a fork-owned profile instead of upstream core.
+  // Legacy marker value "core" from old minimal installs migrates to the
+  // Mase-owned profile unless the user explicitly asked for --profile=core.
+  const _resolvedProfileName = resolveEffectiveProfile({
+    requestedProfileName: _requestedProfileName,
+    targetDir,
+  });
+  const _activeProfileName = (!hasMinimal && !_profileArgRaw && _resolvedProfileName === 'core')
+    ? MASE_MINIMAL_PROFILE_NAME
+    : _resolvedProfileName;
+  const _effectiveInstallMode = (_activeProfileName === MASE_MINIMAL_PROFILE_NAME || _activeProfileName === 'core')
+    ? 'minimal'
+    : 'full';
+  const _shouldInstallAgents = _activeProfileName === MASE_MINIMAL_PROFILE_NAME || !isMinimalMode(_effectiveInstallMode);
+  // Load the manifest and compute resolved profile. All named profiles,
+  // including Mase's minimal profile, use the same closure/staging path.
   const _commandsDir = path.join(src, 'commands', 'gsd');
-  const _skillsManifest = _isCoreProfileAlias ? new Map() : loadSkillsManifest(_commandsDir);
-  const _resolvedProfile = _isCoreProfileAlias
-    ? null  // --minimal uses stageSkillsForMode at dispatch sites
-    : resolveProfile({
-        modes: [_activeProfileName],
-        manifest: _skillsManifest,
-      });
-  // Unified staging function: for --minimal uses stageSkillsForMode (back-compat);
-  // for named profiles uses stageSkillsForProfile (new API with transitive closure).
+  const _agentsDir = path.join(src, 'agents');
+  const _skillsManifest = loadSkillsManifest(_commandsDir, _agentsDir);
+  const _resolvedProfile = resolveProfile({
+    modes: [_activeProfileName],
+    manifest: _skillsManifest,
+  });
   function _stageSkills(commandsGsdDir) {
-    if (_isCoreProfileAlias) return stageSkillsForMode(commandsGsdDir, _effectiveInstallMode);
     return stageSkillsForProfile(commandsGsdDir, _resolvedProfile);
   }
   function _stageAgents(agentsDir) {
-    if (_isCoreProfileAlias) return agentsDir;
     return stageAgentsForProfile(agentsDir, _resolvedProfile);
   }
   const persistActiveProfileMarker = () => {
@@ -7903,7 +7894,7 @@ function install(isGlobal, runtime = 'claude', options = {}) {
   // Map<filename, Buffer> — content snapshot of each pre-existing gsd-* agent file.
   const codexPreInstallAgentContents = new Map();
   let codexPreInstallVersionBytes = null;
-  if (isCodex && !isMinimalMode(_effectiveInstallMode)) {
+  if (isCodex && _shouldInstallAgents) {
     const _preSkillsDir = path.join(targetDir, 'skills');
     if (fs.existsSync(_preSkillsDir)) {
       for (const entry of fs.readdirSync(_preSkillsDir, { withFileTypes: true })) {
@@ -7957,7 +7948,7 @@ function install(isGlobal, runtime = 'claude', options = {}) {
   // atomic-write temp files. It is safe to call before any writes have happened.
   // The full restoreCodexSnapshot() (defined inside the config block) additionally
   // handles config.toml, which is not yet touched at this point in the pipeline.
-  const _codexPreConfigRollback = !isCodex || isMinimalMode(_effectiveInstallMode) ? null : () => {
+  const _codexPreConfigRollback = !isCodex || !_shouldInstallAgents ? null : () => {
     rollbackInstallerMigrations();
     // skills/gsd-* — pass 1: restore snapshot entries (may be absent if deleted mid-install).
     const _earlySkillsDir = path.join(targetDir, 'skills');
@@ -8488,7 +8479,7 @@ function install(isGlobal, runtime = 'claude', options = {}) {
     }
   }
 
-  if (isMinimalMode(_effectiveInstallMode)) {
+  if (!_shouldInstallAgents) {
     // Codex registers agents in `config.toml` via `[agents.gsd-*]` sections.
     // Without stripping them here, a full → minimal reinstall would leave the
     // runtime advertising the old full agent surface even though the agent
@@ -8505,7 +8496,7 @@ function install(isGlobal, runtime = 'claude', options = {}) {
         }
       }
     }
-    console.log(`  ${dim}↳${reset} Skipping agents (minimal install — run \`gsd update\` without \`--minimal\` to add full surface)`);
+    console.log(`  ${dim}↳${reset} Skipping agents (core install — use Mase minimal or full to install agent roles)`);
   } else if (fs.existsSync(agentsSrc)) {
     fs.mkdirSync(agentsDest, { recursive: true });
 
@@ -8689,7 +8680,10 @@ function install(isGlobal, runtime = 'claude', options = {}) {
   }
 
   // Write file manifest for future modification detection
-  writeManifest(targetDir, runtime, { mode: _effectiveInstallMode });
+  writeManifest(targetDir, runtime, {
+    mode: _effectiveInstallMode,
+    profile: _activeProfileName,
+  });
   console.log(`  ${green}✓${reset} Wrote file manifest (${MANIFEST_NAME})`);
 
   // Report any backed-up local patches
@@ -8761,7 +8755,7 @@ function install(isGlobal, runtime = 'claude', options = {}) {
     throw _earlyInstallErr;
   }
 
-  if (isCodex && !isMinimalMode(_effectiveInstallMode)) {
+  if (isCodex && _shouldInstallAgents) {
     // Capture pre-install snapshots before ANY GSD mutation
     // (#2760 fix 3). On post-write schema-validation failure OR any throw
     // during the mutation sequence (write failure, merge throw, etc.) we
@@ -8924,7 +8918,7 @@ function install(isGlobal, runtime = 'claude', options = {}) {
     };
 
     let agentCount = 0;
-    if (!isMinimalMode(_effectiveInstallMode)) {
+    if (_shouldInstallAgents) {
       try {
         // Generate Codex config.toml and per-agent .toml files.
         agentCount = installCodexConfig(targetDir, agentsSrc);
@@ -8935,7 +8929,7 @@ function install(isGlobal, runtime = 'claude', options = {}) {
       console.log(`  ${green}✓${reset} Generated config.toml with ${agentCount} agent roles`);
       console.log(`  ${green}✓${reset} Generated ${agentCount} agent .toml config files`);
     } else {
-      console.log(`  ${dim}↳${reset} Skipping Codex agent config generation (minimal install)`);
+      console.log(`  ${dim}↳${reset} Skipping Codex agent config generation (core install)`);
     }
 
     // Copy hook files that are referenced by Codex hook configuration (#2153)

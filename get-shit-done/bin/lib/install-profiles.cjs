@@ -8,12 +8,13 @@
  * consumes ~60% of the default 1%-of-context skill-listing budget, causing
  * dropped skills when users stack multiple plugins (#3408).
  *
- * Profile model: three named profiles replace the old minimal/full binary:
- *  - core     — main project loop plus code-review completion checkpoint
- *  - standard — core + phase management and workspace skills
- *  - full     — all skills (previous default, '*' sentinel)
+ * Profile model:
+ *  - mase-minimal — Mase-owned fork profile for --minimal installs
+ *  - core         — upstream main project loop plus code-review checkpoint
+ *  - standard     — core + phase management and workspace skills
+ *  - full         — all skills (previous default, '*' sentinel)
  * Profiles compose: --profile=core,audit resolves to union(closure(core), closure(audit)).
- * Back-compat aliases: --minimal / --core-only both map to --profile=core.
+ * In Mase's fork, --minimal / --core-only map to mase-minimal.
  *
  * This module owns:
  *  - PROFILES map: named profile → base skill set (or '*' sentinel for full)
@@ -31,7 +32,10 @@
  *
  * Legacy back-compat exports (deprecated, kept for existing callers):
  *  - MINIMAL_SKILL_ALLOWLIST — derived from PROFILES.core
+ *  - MINIMAL_AGENT_ALLOWLIST — legacy minimal agent set for SDK validation
  *  - isMinimalMode(mode) — returns true for 'minimal'
+ *  - detectInstallModeForAgentsDir(agentsDir) — reads legacy install manifest
+ *  - expectedAgentsForMode(mode, allAgents) — resolves legacy expected agent set
  *  - shouldInstallSkill(name, mode|resolvedProfile) — overloaded
  *  - stageSkillsForMode(srcDir, mode) — wraps stageSkillsForProfile
  */
@@ -42,6 +46,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { platformWriteSync } = require('./shell-command-projection.cjs');
+const {
+  MASE_MINIMAL_PROFILE_NAME,
+  MASE_MINIMAL_SKILL_ALLOWLIST,
+  MASE_MINIMAL_AGENT_ALLOWLIST,
+} = require('./mase-minimal-profile.cjs');
 
 // ---------------------------------------------------------------------------
 // Profile definitions
@@ -51,11 +60,13 @@ const { platformWriteSync } = require('./shell-command-projection.cjs');
  * PROFILES maps profile name → base skill set (array) or '*' sentinel (full).
  *
  * The effective set for any profile is CLOSURE(base, requires: manifest).
- * standard is a superset of core; full is the identity (all skills).
+ * Mase minimal is intentionally independent of upstream standard; full is
+ * the identity (all skills).
  *
  * Composition: --profile=core,audit resolves to union(closure(core), closure(audit)).
  */
 const PROFILES = Object.freeze({
+  [MASE_MINIMAL_PROFILE_NAME]: MASE_MINIMAL_SKILL_ALLOWLIST,
   core: Object.freeze([
     'new-project',
     'discuss-phase',
@@ -150,9 +161,30 @@ function parseCallsAgents(content) {
  * @param {string} commandsDir absolute path to commands/gsd/
  * @returns {Map<string, string[]>} stem → [required stem, ...] plus _calls_agents_<stem> entries
  */
-function loadSkillsManifest(commandsDir) {
+function loadAgentStems(commandsDir, agentsDir) {
+  const candidates = [];
+  if (agentsDir) candidates.push(agentsDir);
+  if (commandsDir) candidates.push(path.resolve(commandsDir, '..', '..', 'agents'));
+  for (const dir of candidates) {
+    try {
+      if (!fs.existsSync(dir)) continue;
+      const stems = new Set();
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+        stems.add(entry.name.slice(0, -3));
+      }
+      return stems;
+    } catch {
+      // Try the next candidate.
+    }
+  }
+  return null;
+}
+
+function loadSkillsManifest(commandsDir, agentsDir) {
   const manifest = new Map();
   if (!fs.existsSync(commandsDir)) return manifest;
+  const agentStems = loadAgentStems(commandsDir, agentsDir);
   const entries = fs.readdirSync(commandsDir, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isFile()) continue;
@@ -162,7 +194,8 @@ function loadSkillsManifest(commandsDir) {
       const content = fs.readFileSync(path.join(commandsDir, entry.name), 'utf8');
       manifest.set(stem, parseRequires(content));
       // Derive agent references from body text
-      const agentRefs = parseCallsAgents(content);
+      const agentRefs = parseCallsAgents(content)
+        .filter((agentStem) => !agentStems || agentStems.has(agentStem));
       manifest.set(`_calls_agents_${stem}`, agentRefs);
     } catch {
       manifest.set(stem, []);
@@ -248,6 +281,11 @@ function resolveProfile({ modes, manifest, _profilesOverride } = {}) {
   for (const skillStem of unionSkills) {
     const agentRefs = man.get(`_calls_agents_${skillStem}`) || [];
     for (const agentStem of agentRefs) {
+      unionAgents.add(agentStem);
+    }
+  }
+  if (validModes.includes(MASE_MINIMAL_PROFILE_NAME)) {
+    for (const agentStem of MASE_MINIMAL_AGENT_ALLOWLIST) {
       unionAgents.add(agentStem);
     }
   }
@@ -418,7 +456,7 @@ function writeActiveProfile(runtimeConfigDir, profileName) {
  * Rank ordering for profiles (lower index = more restrictive / smaller skill set).
  * Unknown profiles default to the permissive end (treated as 'full').
  */
-const PROFILE_RANK = Object.freeze(['core', 'standard', 'full']);
+const PROFILE_RANK = Object.freeze(['core', 'standard', MASE_MINIMAL_PROFILE_NAME, 'full']);
 
 /**
  * Given an array of profile names (one per runtime), return the most-restrictive
@@ -485,6 +523,27 @@ function resolveEffectiveProfile({ requestedProfileName, targetDir }) {
  */
 const MINIMAL_SKILL_ALLOWLIST = Object.freeze([...PROFILES.core]);
 
+/**
+ * @deprecated Use resolveProfile({ modes: ['core'] }).agents for new profile-aware installs.
+ * Kept stable so SDK health checks keep recognizing existing minimal installs
+ * that were written before the profile refactor.
+ */
+const MINIMAL_AGENT_ALLOWLIST = Object.freeze([
+  'gsd-advisor-researcher',
+  'gsd-assumptions-analyzer',
+  'gsd-codebase-mapper',
+  'gsd-code-reviewer',
+  'gsd-executor',
+  'gsd-pattern-mapper',
+  'gsd-phase-researcher',
+  'gsd-plan-checker',
+  'gsd-planner',
+  'gsd-project-researcher',
+  'gsd-research-synthesizer',
+  'gsd-roadmapper',
+  'gsd-verifier',
+]);
+
 const MINIMAL_ALLOWLIST_SET = new Set(MINIMAL_SKILL_ALLOWLIST);
 
 /**
@@ -492,6 +551,49 @@ const MINIMAL_ALLOWLIST_SET = new Set(MINIMAL_SKILL_ALLOWLIST);
  */
 function isMinimalMode(mode) {
   return mode === 'minimal' || mode === 'core-only';
+}
+
+/**
+ * @deprecated Use profile markers / surface state for new installs.
+ * Legacy health checks still read gsd-file-manifest.json mode.
+ */
+function detectInstallModeForAgentsDir(agentsDir) {
+  const manifestPath = path.join(path.dirname(agentsDir), 'gsd-file-manifest.json');
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    return manifest && isMinimalMode(manifest.mode) ? 'minimal' : 'full';
+  } catch {
+    return 'full';
+  }
+}
+
+function detectInstallProfileForAgentsDir(agentsDir) {
+  const manifestPath = path.join(path.dirname(agentsDir), 'gsd-file-manifest.json');
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    if (manifest && typeof manifest.profile === 'string' && manifest.profile.trim()) {
+      return manifest.profile.trim();
+    }
+    return manifest && isMinimalMode(manifest.mode) ? 'legacy-minimal' : 'full';
+  } catch {
+    return 'full';
+  }
+}
+
+/**
+ * @deprecated Use resolveProfile() for new profile-aware installs.
+ */
+function expectedAgentsForMode(mode, allAgents) {
+  if (isMinimalMode(mode)) return [...MINIMAL_AGENT_ALLOWLIST];
+  return [...allAgents];
+}
+
+function expectedAgentsForProfile(profile, allAgents) {
+  if (profile === MASE_MINIMAL_PROFILE_NAME) return [...MASE_MINIMAL_AGENT_ALLOWLIST];
+  if (profile === 'legacy-minimal') return [...MINIMAL_AGENT_ALLOWLIST];
+  if (profile === 'core') return [];
+  if (profile === 'full') return [...allAgents];
+  return [...allAgents];
 }
 
 /**
@@ -555,6 +657,9 @@ function stageSkillsForMode(srcDir, mode) {
 module.exports = {
   // New profile API (ADR-0011)
   PROFILES,
+  MASE_MINIMAL_PROFILE_NAME,
+  MASE_MINIMAL_SKILL_ALLOWLIST,
+  MASE_MINIMAL_AGENT_ALLOWLIST,
   PROFILE_RANK,
   loadSkillsManifest,
   resolveProfile,
@@ -568,7 +673,12 @@ module.exports = {
   cleanupStagedSkills,
   // Back-compat / deprecated
   MINIMAL_SKILL_ALLOWLIST,
+  MINIMAL_AGENT_ALLOWLIST,
   isMinimalMode,
+  detectInstallModeForAgentsDir,
+  detectInstallProfileForAgentsDir,
+  expectedAgentsForMode,
+  expectedAgentsForProfile,
   shouldInstallSkill,
   stageSkillsForMode,
 };

@@ -9,6 +9,11 @@ const { execGit, platformWriteSync, platformReadSync, platformEnsureDir } = requ
 const { MODEL_PROFILES, AGENT_TO_PHASE_TYPE, VALID_PHASE_TYPES, AGENT_DEFAULT_TIERS, VALID_AGENT_TIERS, nextTier } = require('./model-profiles.cjs');
 const { MODEL_ALIAS_MAP, RUNTIME_PROFILE_MAP, KNOWN_RUNTIMES, RUNTIMES_WITH_REASONING_EFFORT } = require('./model-catalog.cjs');
 const {
+  detectInstallModeForAgentsDir,
+  detectInstallProfileForAgentsDir,
+  expectedAgentsForProfile,
+} = require('./install-profiles.cjs');
+const {
   resolveWorktreeContext,
   parseWorktreePorcelain: parseWorktreePorcelainPolicy,
   planWorktreePrune,
@@ -1101,6 +1106,9 @@ function getAgentsDir() {
   if (process.env.GSD_AGENTS_DIR) {
     return process.env.GSD_AGENTS_DIR;
   }
+  if (process.env.GSD_RUNTIME === 'codex') {
+    return path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'agents');
+  }
   // __dirname is get-shit-done/bin/lib/ → go up 3 levels to configDir
   return path.join(__dirname, '..', '..', '..', 'agents');
 }
@@ -1116,7 +1124,9 @@ function getAgentsDir() {
  */
 function checkAgentsInstalled() {
   const agentsDir = getAgentsDir();
-  const expectedAgents = Object.keys(MODEL_PROFILES);
+  const installMode = detectInstallModeForAgentsDir(agentsDir);
+  const installProfile = detectInstallProfileForAgentsDir(agentsDir);
+  const expectedAgents = expectedAgentsForProfile(installProfile, Object.keys(MODEL_PROFILES));
   const installed = [];
   const missing = [];
 
@@ -1126,6 +1136,9 @@ function checkAgentsInstalled() {
       missing_agents: expectedAgents,
       installed_agents: [],
       agents_dir: agentsDir,
+      install_mode: installMode,
+      install_profile: installProfile,
+      expected_agents: expectedAgents,
     };
   }
 
@@ -1145,6 +1158,9 @@ function checkAgentsInstalled() {
     missing_agents: missing,
     installed_agents: installed,
     agents_dir: agentsDir,
+    install_mode: installMode,
+    install_profile: installProfile,
+    expected_agents: expectedAgents,
   };
 }
 

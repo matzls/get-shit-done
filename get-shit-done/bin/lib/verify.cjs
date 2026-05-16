@@ -1164,6 +1164,7 @@ function cmdValidateAgents(cwd, raw) {
   output({
     agents_dir: agentStatus.agents_dir,
     install_mode: agentStatus.install_mode,
+    install_profile: agentStatus.install_profile,
     agents_found: agentStatus.agents_installed,
     installed: agentStatus.installed_agents,
     missing: agentStatus.missing_agents,

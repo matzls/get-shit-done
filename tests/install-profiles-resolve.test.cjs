@@ -8,6 +8,9 @@ const assert = require('node:assert/strict');
 const path = require('path');
 
 const {
+  MASE_MINIMAL_AGENT_ALLOWLIST,
+  MASE_MINIMAL_PROFILE_NAME,
+  MASE_MINIMAL_SKILL_ALLOWLIST,
   PROFILES,
   resolveProfile,
   loadSkillsManifest,
@@ -20,17 +23,19 @@ describe('PROFILES map', () => {
     assert.ok(Object.isFrozen(PROFILES));
   });
 
-  test('PROFILES has core, standard, full keys', () => {
+  test('PROFILES has Mase minimal, core, standard, full keys', () => {
+    assert.ok(MASE_MINIMAL_PROFILE_NAME in PROFILES, 'PROFILES.mase-minimal missing');
     assert.ok('core' in PROFILES, 'PROFILES.core missing');
     assert.ok('standard' in PROFILES, 'PROFILES.standard missing');
     assert.ok('full' in PROFILES, 'PROFILES.full missing');
   });
 
-  test('PROFILES.core contains the 7 main-loop skills (including phase)', () => {
+  test('PROFILES.core contains the main-loop skills plus code-review', () => {
     const core = PROFILES.core;
     assert.ok(Array.isArray(core), 'core should be an array');
     const sorted = [...core].sort();
     assert.deepStrictEqual(sorted, [
+      'code-review',
       'discuss-phase',
       'execute-phase',
       'help',
@@ -43,6 +48,17 @@ describe('PROFILES map', () => {
 
   test('PROFILES.full is the sentinel "*"', () => {
     assert.strictEqual(PROFILES.full, '*');
+  });
+
+  test('Mase minimal is explicit fork policy and larger than upstream standard', () => {
+    assert.deepStrictEqual(
+      [...PROFILES[MASE_MINIMAL_PROFILE_NAME]].sort(),
+      [...MASE_MINIMAL_SKILL_ALLOWLIST].sort(),
+    );
+    assert.ok(
+      MASE_MINIMAL_SKILL_ALLOWLIST.length > PROFILES.standard.length,
+      'Mase minimal should remain larger than upstream standard until Mase changes it',
+    );
   });
 
   test('PROFILES.standard contains at least the core skills', () => {
@@ -156,6 +172,15 @@ describe('resolveProfile', () => {
     // plan-phase is in standard and calls gsd-planner, gsd-plan-checker, gsd-phase-researcher
     assert.ok(result.agents.has('gsd-planner'), 'standard should include gsd-planner (called by plan-phase)');
     assert.ok(result.agents.has('gsd-plan-checker'), 'standard should include gsd-plan-checker (called by plan-phase)');
+  });
+
+  test('resolveProfile Mase minimal — includes explicit fork agent allowlist', () => {
+    const manifest = loadSkillsManifest(REAL_COMMANDS_DIR);
+    const result = resolveProfile({ modes: [MASE_MINIMAL_PROFILE_NAME], manifest });
+    assert.strictEqual(result.name, MASE_MINIMAL_PROFILE_NAME);
+    for (const agent of MASE_MINIMAL_AGENT_ALLOWLIST) {
+      assert.ok(result.agents.has(agent), `Mase minimal should include ${agent}`);
+    }
   });
 
   test('resolveProfile full — agents is empty Set (full staging uses srcDir directly)', () => {

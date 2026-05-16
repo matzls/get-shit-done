@@ -29,6 +29,8 @@ const path = require('path');
 const os = require('os');
 
 const {
+  MASE_MINIMAL_AGENT_ALLOWLIST,
+  MASE_MINIMAL_SKILL_ALLOWLIST,
   MINIMAL_SKILL_ALLOWLIST,
   isMinimalMode,
   shouldInstallSkill,
@@ -390,7 +392,7 @@ function listTmpStageDirs() {
 // sections in `config.toml`. This test simulates a previous full Codex
 // install (a few stale agent files + an existing GSD-marked config.toml)
 // and confirms that `--minimal` cleans them up.
-describe('install: Codex full → minimal downgrade cleans stale agent state', () => {
+describe('install: Codex full → Mase minimal refreshes stale agent state', () => {
   const { spawnSync } = require('child_process');
   const installScript = path.join(__dirname, '..', 'bin', 'install.js');
 
@@ -422,7 +424,7 @@ describe('install: Codex full → minimal downgrade cleans stale agent state', (
     fs.writeFileSync(path.join(targetDir, 'config.toml'), codexConfig);
   }
 
-  test('--minimal removes stale .toml agents and strips [agents.gsd-*] from config.toml', () => {
+  test('--minimal replaces stale .md/.toml agents and refreshes [agents.gsd-*] in config.toml', () => {
     const targetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-codex-downgrade-'));
     try {
       makeStaleCodexInstall(targetDir);
@@ -440,21 +442,27 @@ describe('install: Codex full → minimal downgrade cleans stale agent state', (
       const agentsDir = path.join(targetDir, 'agents');
       const remaining = fs.existsSync(agentsDir) ? fs.readdirSync(agentsDir) : [];
 
-      // Stale gsd-* files (.md AND .toml) must be gone:
-      assert.ok(!remaining.includes('gsd-executor.md'), 'stale gsd-executor.md should be removed');
-      assert.ok(!remaining.includes('gsd-planner.md'), 'stale gsd-planner.md should be removed');
-      assert.ok(!remaining.includes('gsd-executor.toml'), 'stale gsd-executor.toml should be removed');
-      assert.ok(!remaining.includes('gsd-planner.toml'), 'stale gsd-planner.toml should be removed');
+      // Stale files must be replaced by managed Mase minimal agent files.
+      assert.ok(remaining.includes('gsd-executor.md'), 'gsd-executor.md should be reinstalled');
+      assert.ok(remaining.includes('gsd-planner.md'), 'gsd-planner.md should be reinstalled');
+      assert.ok(remaining.includes('gsd-executor.toml'), 'gsd-executor.toml should be regenerated');
+      assert.ok(remaining.includes('gsd-planner.toml'), 'gsd-planner.toml should be regenerated');
+      assert.notStrictEqual(
+        fs.readFileSync(path.join(agentsDir, 'gsd-executor.md'), 'utf8'),
+        'stale\n',
+        'stale gsd-executor.md content should be replaced',
+      );
 
       // User-owned agent must survive:
       assert.ok(remaining.includes('my-custom-agent.md'), 'user agent should be preserved');
 
-      // config.toml: GSD section gone, user content preserved
+      // config.toml: stale GSD entries replaced, user content preserved
       const configPath = path.join(targetDir, 'config.toml');
       if (fs.existsSync(configPath)) {
         const config = fs.readFileSync(configPath, 'utf8');
-        assert.ok(!config.includes('[agents.gsd-executor]'), 'gsd-executor section stripped');
-        assert.ok(!config.includes('[agents.gsd-planner]'), 'gsd-planner section stripped');
+        assert.ok(config.includes('[agents.gsd-executor]'), 'gsd-executor section regenerated');
+        assert.ok(config.includes('[agents.gsd-planner]'), 'gsd-planner section regenerated');
+        assert.ok(!config.includes('cmd = "stale"'), 'stale GSD agent config stripped');
         assert.ok(config.includes('model = "gpt-5"'), 'user setting preserved');
       }
       // (If config.toml was GSD-only it'd be removed entirely, which is also acceptable —
@@ -471,11 +479,11 @@ describe('install: Codex full → minimal downgrade cleans stale agent state', (
 // Mirrors the Codex test for the most common runtime. The Codex test pins
 // the .toml + config.toml cleanup; this one pins the .md-only path that
 // every non-Codex runtime shares.
-describe('install: Claude full → minimal downgrade removes stale agents', () => {
+describe('install: Claude full → Mase minimal refreshes stale agents', () => {
   const { spawnSync } = require('child_process');
   const installScript = path.join(__dirname, '..', 'bin', 'install.js');
 
-  test('--minimal removes stale gsd-*.md agents but preserves user-owned agents', () => {
+  test('--minimal replaces stale gsd-*.md agents but preserves user-owned agents', () => {
     const targetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-claude-downgrade-'));
     try {
       const agentsDir = path.join(targetDir, 'agents');
@@ -492,13 +500,14 @@ describe('install: Claude full → minimal downgrade removes stale agents', () =
       );
 
       const remaining = fs.existsSync(agentsDir) ? fs.readdirSync(agentsDir) : [];
-      assert.ok(!remaining.includes('gsd-executor.md'), 'stale gsd-executor.md removed');
-      assert.ok(!remaining.includes('gsd-planner.md'), 'stale gsd-planner.md removed');
+      assert.ok(remaining.includes('gsd-executor.md'), 'gsd-executor.md reinstalled');
+      assert.ok(remaining.includes('gsd-planner.md'), 'gsd-planner.md reinstalled');
+      assert.notStrictEqual(
+        fs.readFileSync(path.join(agentsDir, 'gsd-executor.md'), 'utf8'),
+        'stale\n',
+        'stale gsd-executor.md content should be replaced',
+      );
       assert.ok(remaining.includes('my-custom-agent.md'), 'user agent preserved');
-
-      // No `gsd-*` files at all should remain:
-      const stragglers = remaining.filter((f) => f.startsWith('gsd-'));
-      assert.deepStrictEqual(stragglers, [], 'no gsd-* files should remain in agents/');
     } finally {
       fs.rmSync(targetDir, { recursive: true, force: true });
     }
@@ -547,18 +556,18 @@ describe('install: manifest records mode for both profiles', () => {
     assert.ok(r.agentCount > 0, `full install should have agents, got ${r.agentCount}`);
   });
 
-  test('--minimal records mode: "minimal" with exactly 8 skills and 0 agents', () => {
+  test('--minimal records mode: "minimal" with the Mase minimal skill and agent surface', () => {
     const r = manifestModeAfterInstall(['--minimal']);
     assert.strictEqual(r.mode, 'minimal');
-    assert.strictEqual(r.skillCount, 8);
-    assert.strictEqual(r.agentCount, 0);
+    assert.ok(r.skillCount >= MASE_MINIMAL_SKILL_ALLOWLIST.length);
+    assert.strictEqual(r.agentCount, MASE_MINIMAL_AGENT_ALLOWLIST.length);
   });
 
-  test('--core-only is an alias for --minimal', () => {
+  test('--core-only is an alias for the Mase minimal surface', () => {
     const r = manifestModeAfterInstall(['--core-only']);
     assert.strictEqual(r.mode, 'minimal');
-    assert.strictEqual(r.skillCount, 8);
-    assert.strictEqual(r.agentCount, 0);
+    assert.ok(r.skillCount >= MASE_MINIMAL_SKILL_ALLOWLIST.length);
+    assert.strictEqual(r.agentCount, MASE_MINIMAL_AGENT_ALLOWLIST.length);
   });
 });
 

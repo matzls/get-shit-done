@@ -861,7 +861,11 @@ async function getAgentsDirForValidateAgents(projectDir: string): Promise<string
  */
 export const validateAgents: QueryHandler = async (_args, projectDir) => {
   const agentsDir = await getAgentsDirForValidateAgents(projectDir);
-  const { install_mode: installMode, expected_agents: expected } = expectedAgentsForAgentsDir(agentsDir, Object.keys(MODEL_PROFILES));
+  const {
+    install_mode: installMode,
+    install_profile: installProfile,
+    expected_agents: expected,
+  } = expectedAgentsForAgentsDir(agentsDir, Object.keys(MODEL_PROFILES));
   const installed: string[] = [];
   const missing: string[] = [];
 
@@ -870,6 +874,7 @@ export const validateAgents: QueryHandler = async (_args, projectDir) => {
       data: {
         agents_dir: agentsDir,
         install_mode: installMode,
+        install_profile: installProfile,
         agents_found: false,
         installed: [] as string[],
         missing: expected,
@@ -893,6 +898,7 @@ export const validateAgents: QueryHandler = async (_args, projectDir) => {
     data: {
       agents_dir: agentsDir,
       install_mode: installMode,
+      install_profile: installProfile,
       agents_found: agentsInstalled,
       installed,
       missing,

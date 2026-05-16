@@ -32,6 +32,8 @@ import { relPlanningPath, validateWorkstreamName } from '../workstream-utils.js'
 const require = createRequire(import.meta.url);
 const installProfiles = require('../../../get-shit-done/bin/lib/install-profiles.cjs') as {
   MINIMAL_AGENT_ALLOWLIST: readonly string[];
+  detectInstallProfileForAgentsDir: (agentsDir: string) => string;
+  expectedAgentsForProfile: (profile: unknown, allAgents: string[]) => string[];
   isMinimalMode: (mode: unknown) => boolean;
 };
 
@@ -109,6 +111,9 @@ export function detectRuntime(config?: { runtime?: unknown }, runtimeContextPath
   const configValue = config?.runtime;
   if (typeof configValue === 'string' && (SUPPORTED_RUNTIMES as readonly string[]).includes(configValue)) {
     return configValue as Runtime;
+  }
+  if (process.env.CLAUDE_CONFIG_DIR) {
+    return 'claude';
   }
   if (process.env.CODEX_HOME) {
     return 'codex';
@@ -202,11 +207,13 @@ export function expectedAgentsForMode(mode: unknown, allAgents: string[]): strin
   return [...allAgents];
 }
 
-export function expectedAgentsForAgentsDir(agentsDir: string, allAgents: string[]): { install_mode: 'minimal' | 'full'; expected_agents: string[] } {
+export function expectedAgentsForAgentsDir(agentsDir: string, allAgents: string[]): { install_mode: 'minimal' | 'full'; install_profile: string; expected_agents: string[] } {
   const installMode = detectInstallModeForAgentsDir(agentsDir);
+  const installProfile = installProfiles.detectInstallProfileForAgentsDir(agentsDir);
   return {
     install_mode: installMode,
-    expected_agents: expectedAgentsForMode(installMode, allAgents),
+    install_profile: installProfile,
+    expected_agents: installProfiles.expectedAgentsForProfile(installProfile, allAgents),
   };
 }
 

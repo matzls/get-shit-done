@@ -5,7 +5,7 @@ status: active
 audience: "agents-maintainers"
 canonicality: canonical
 created: 2026-05-04
-updated: 2026-05-11
+updated: 2026-05-16
 ---
 
 # Mase GSD Fork Operating Model
@@ -138,6 +138,36 @@ reviewing the dry-run output.
 ## Local Patch Scope
 
 Local fixes should stay small, reviewable, and focused on Mase's runtime needs.
+
+## Mase Minimal Install Surface
+
+In this fork, `--minimal` and `--core-only` intentionally install Mase's
+fork-owned profile, `mase-minimal`, not upstream `core` or `standard`.
+
+The source of truth is:
+
+```text
+get-shit-done/bin/lib/mase-minimal-profile.cjs
+```
+
+That file contains explicit skill and agent allowlists. Do not derive Mase's
+minimal install from upstream `standard`; upstream can add, remove, or redefine
+that profile during intake, while Mase's install surface should persist until
+Mase deliberately edits the fork-owned list.
+
+Install manifests now record both:
+
+```json
+{
+  "mode": "minimal",
+  "profile": "mase-minimal"
+}
+```
+
+Keep reading legacy `mode: "minimal"` manifests for old installs. When a prior
+minimal install only has `.gsd-profile` set to `core`, the fork installer may
+migrate it to `mase-minimal` unless the user explicitly requests
+`--profile=core`.
 
 Current first patch goal:
 

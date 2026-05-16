@@ -3,7 +3,7 @@
  * Back-compat regression: --minimal still produces the same file set as before
  * the profile model was introduced (modulo the phase-inclusion fix).
  *
- * Also verifies --profile=core is equivalent to --minimal.
+ * Also verifies --profile=core remains available separately from --minimal.
  */
 
 const { test, describe } = require('node:test');
@@ -14,6 +14,8 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 
 const {
+  MASE_MINIMAL_PROFILE_NAME,
+  MASE_MINIMAL_SKILL_ALLOWLIST,
   MINIMAL_SKILL_ALLOWLIST,
   PROFILES,
 } = require('../get-shit-done/bin/lib/install-profiles.cjs');
@@ -31,7 +33,7 @@ describe('install-minimal-backcompat: PROFILES.core matches MINIMAL_SKILL_ALLOWL
   });
 });
 
-describe('install-minimal-backcompat: --minimal and --profile=core produce the same manifest skill count', () => {
+describe('install-minimal-backcompat: --minimal uses Mase fork profile while --profile=core remains available', () => {
   function installAndGetManifest(extraArgs) {
     const targetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-backcompat-'));
     try {
@@ -41,7 +43,7 @@ describe('install-minimal-backcompat: --minimal and --profile=core produce the s
         { encoding: 'utf8' },
       );
       const manifestPath = path.join(targetDir, MANIFEST_NAME);
-      if (!fs.existsSync(manifestPath)) return { mode: null, skillCount: 0, profileMarker: null };
+      if (!fs.existsSync(manifestPath)) return { mode: null, profile: null, skillCount: 0, profileMarker: null };
       const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
       const skillCount = new Set(
         Object.keys(m.files || {})
@@ -53,21 +55,29 @@ describe('install-minimal-backcompat: --minimal and --profile=core produce the s
       const profileMarker = fs.existsSync(markerPath)
         ? fs.readFileSync(markerPath, 'utf8').trim()
         : null;
-      return { mode: m.mode, skillCount, profileMarker };
+      return { mode: m.mode, profile: m.profile, skillCount, profileMarker };
     } finally {
       fs.rmSync(targetDir, { recursive: true, force: true });
     }
   }
 
-  test('--minimal produces mode "minimal" with exactly 7 skills', () => {
+  test('--minimal produces Mase minimal profile with the fork-owned skill surface', () => {
     const r = installAndGetManifest(['--minimal']);
     assert.strictEqual(r.mode, 'minimal');
-    assert.strictEqual(r.skillCount, 7);
+    assert.strictEqual(r.profile, MASE_MINIMAL_PROFILE_NAME);
+    assert.ok(
+      r.skillCount >= MASE_MINIMAL_SKILL_ALLOWLIST.length,
+      `Mase minimal should include at least the explicit fork skill surface, got ${r.skillCount}`,
+    );
   });
 
-  test('--minimal writes .gsd-profile marker with "core"', () => {
+  test('--minimal writes .gsd-profile marker with the Mase minimal profile', () => {
     const r = installAndGetManifest(['--minimal']);
-    assert.strictEqual(r.profileMarker, 'core', '--minimal should write profile marker "core"');
+    assert.strictEqual(
+      r.profileMarker,
+      MASE_MINIMAL_PROFILE_NAME,
+      '--minimal should write the fork-owned profile marker',
+    );
   });
 
   test('default (no flags) writes .gsd-profile marker with "full"', () => {
