@@ -1127,7 +1127,7 @@ describe('resolve-model command', () => {
     assert.ok(result.success, `Command failed: ${result.error}`);
 
     const output = JSON.parse(result.output);
-    assert.strictEqual(output.model, 'gpt-5.4');
+    assert.strictEqual(output.model, 'gpt-5.5');
     assert.strictEqual(output.profile, 'balanced');
     assert.strictEqual(output.reasoning_effort, 'xhigh');
   });

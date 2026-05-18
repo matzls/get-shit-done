@@ -27,7 +27,16 @@ const fs = require('fs');
 const path = require('path');
 
 const PROFILES_MODULE = path.join(__dirname, '..', 'get-shit-done', 'bin', 'lib', 'install-profiles.cjs');
-const { PROFILES, loadSkillsManifest, resolveProfile } = require(PROFILES_MODULE);
+const {
+  MASE_MINIMAL_PROFILE_NAME,
+  PROFILES,
+  loadSkillsManifest,
+  resolveProfile,
+} = require(PROFILES_MODULE);
+
+// Mase's fork keeps this profile as an explicit curated allowlist, not a
+// dependency-expanded closure. Frontmatter/body consistency is still checked.
+const EXPLICIT_CURATED_PROFILES = new Set([MASE_MINIMAL_PROFILE_NAME]);
 
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -116,6 +125,7 @@ function checkProfileClosure(manifest) {
   for (const profileName of Object.keys(PROFILES)) {
     const base = PROFILES[profileName];
     if (base === '*') continue;
+    if (EXPLICIT_CURATED_PROFILES.has(profileName)) continue;
     const resolved = resolveProfile({ modes: [profileName], manifest });
     if (resolved.skills === '*') continue;
 

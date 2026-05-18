@@ -32,11 +32,11 @@ const path = require('path');
 
 const WORKFLOWS_DIR = path.join(__dirname, '..', 'get-shit-done', 'workflows');
 
-// Bumped from 1700 → 1800 in #3181 to absorb MVP-mode verb-call additions
-// in execute-phase.md (1727 → ) and plan-phase.md (1714 → ) from #3178.
+// Bumped from 1800 → 1850 during upstream intake to absorb current
+// execute-phase.md (1801) and plan-phase.md (1840) upstream growth.
 // Follow-up #3182 (TBD): extract MVP-mode bodies to `<workflow>/modes/mvp.md`
 // per the discuss-phase/modes/ precedent and revert this back to 1700.
-const XL_BUDGET = 1800;
+const XL_BUDGET = 1850;
 const LARGE_BUDGET = 1500;
 const DEFAULT_BUDGET = 1000;
 

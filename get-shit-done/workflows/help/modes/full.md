@@ -105,6 +105,9 @@ Usage: `/gsd:plan-phase --research-phase 2 --view` — print existing `RESEARCH.
 Usage: `/gsd:plan-phase --research-phase 2 --research` — force-refresh, no prompt
 Result: Creates `.planning/phases/01-foundation/01-01-PLAN.md`
 
+**`/gsd:plan-brief <plan-or-phase> [--check]`**
+Generate or verify a compact implementation brief companion for a plan artifact.
+
 **PRD Express Path:** Pass `--prd path/to/requirements.md` to skip discuss-phase entirely. Your PRD becomes locked decisions in CONTEXT.md. Useful when you already have clear acceptance criteria.
 
 ### Execution

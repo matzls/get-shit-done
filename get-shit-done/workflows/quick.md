@@ -1085,6 +1085,7 @@ Use Edit tool to make these changes atomically
 **Step 8: Final commit and completion**
 
 Stage and commit quick task artifacts. This step MUST always run — even if the executor already committed some files (e.g. when running without worktree isolation). The `gsd-sdk query commit` command (or legacy `gsd-tools.cjs` commit) handles already-committed files gracefully.
+If `${QUICK_DIR}/${quick_id}-deferred-items.md` exists, include it in the Step 8 file list and final docs commit.
 
 **Dirty worktree closeout rule:** Protect unrelated user work by default.
 

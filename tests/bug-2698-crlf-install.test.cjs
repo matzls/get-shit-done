@@ -43,6 +43,7 @@ const { execFileSync } = require('child_process');
 const INSTALL_SRC = path.join(__dirname, '..', 'bin', 'install.js');
 const BUILD_SCRIPT = path.join(__dirname, '..', 'scripts', 'build-hooks.js');
 const { install, GSD_CODEX_MARKER } = require(INSTALL_SRC);
+const { cleanup } = require('./helpers.cjs');
 
 // Ensure hooks/dist/ is populated before install tests
 before(() => {
@@ -60,7 +61,8 @@ describe('#2698: CRLF stale gsd-update-check block is removed on Codex reinstall
   });
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    // Use the shared 5s Windows-EBUSY retry budget instead of inline 1s.
+    cleanup(tmpDir);
   });
 
   // Helper: pre-populate .codex/config.toml with a GSD marker + stale hooks block
@@ -122,12 +124,12 @@ function writeCodexConfigWithStaleHooks(dir, headerEol, bodyEol) {
     const content = fs.readFileSync(configPath, 'utf-8');
 
     assert.ok(!content.includes('gsd-update-check'), 'Stale gsd-update-check entry must be removed from LF config.toml (#2698)');
-    assert.ok(content.includes('gsd-check-update'), 'Current gsd-check-update hook must be written to config.toml');
+    assert.equal(content.includes('gsd-check-update'), false, 'Mase fork writes the current gsd-check-update hook to hooks.json, not config.toml');
     const hooksJsonCommands = readHooksSessionStartCommands(path.join(tmpDir, '.codex'));
     assert.equal(
       hooksJsonCommands.some((cmd) => cmd.includes('gsd-check-update')),
-      false,
-      'New gsd-check-update hook must not appear in hooks.json after reinstall'
+      true,
+      'New gsd-check-update hook must appear in hooks.json after reinstall'
     );
   });
 
@@ -143,12 +145,12 @@ function writeCodexConfigWithStaleHooks(dir, headerEol, bodyEol) {
     const content = fs.readFileSync(configPath, 'utf-8');
 
     assert.ok(!content.includes('gsd-update-check'), 'Stale gsd-update-check entry must be removed from CRLF config.toml (#2698)');
-    assert.ok(content.includes('gsd-check-update'), 'Current gsd-check-update hook must be written to config.toml');
+    assert.equal(content.includes('gsd-check-update'), false, 'Mase fork writes the current gsd-check-update hook to hooks.json, not config.toml');
     const hooksJsonCommands = readHooksSessionStartCommands(path.join(tmpDir, '.codex'));
     assert.equal(
       hooksJsonCommands.some((cmd) => cmd.includes('gsd-check-update')),
-      false,
-      'New gsd-check-update hook must not appear in hooks.json after reinstall'
+      true,
+      'New gsd-check-update hook must appear in hooks.json after reinstall'
     );
   });
 
@@ -176,12 +178,12 @@ function writeCodexConfigWithStaleHooks(dir, headerEol, bodyEol) {
         'Fix consolidates to a single \\r?\\n-aware regex.',
       ].join(' ')
     );
-    assert.ok(content.includes('gsd-check-update'), 'Current gsd-check-update hook must be written to config.toml');
+    assert.equal(content.includes('gsd-check-update'), false, 'Mase fork writes the current gsd-check-update hook to hooks.json, not config.toml');
     const hooksJsonCommands = readHooksSessionStartCommands(path.join(tmpDir, '.codex'));
     assert.equal(
       hooksJsonCommands.some((cmd) => cmd.includes('gsd-check-update')),
-      false,
-      'New gsd-check-update hook must not appear in hooks.json after reinstall'
+      true,
+      'New gsd-check-update hook must appear in hooks.json after reinstall'
     );
   });
 });

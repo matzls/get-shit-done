@@ -494,6 +494,11 @@ function loadConfig(cwd, options = {}) {
       // for the agent and escalates one tier per attempt up to
       // max_escalations. Disabled by default for backward compat.
       dynamic_routing: parsed.dynamic_routing || null,
+      commit: {
+        required_trailers: Array.isArray(parsed.commit?.required_trailers)
+          ? parsed.commit.required_trailers
+          : defaults.commit_required_trailers,
+      },
       // #2517 — runtime-aware profiles. `runtime` defaults to null (back-compat).
       // When null, resolveModelInternal preserves today's Claude-native behavior.
       // NOTE: `runtime` and `model_profile_overrides` are intentionally read
@@ -550,6 +555,11 @@ function loadConfig(cwd, options = {}) {
         model_overrides: globalDefaults.model_overrides || null,
         models: globalDefaults.models || null,
         dynamic_routing: globalDefaults.dynamic_routing || null,
+        commit: {
+          required_trailers: Array.isArray(globalDefaults.commit?.required_trailers)
+            ? globalDefaults.commit.required_trailers
+            : defaults.commit_required_trailers,
+        },
         agent_skills: globalDefaults.agent_skills || {},
         response_language: globalDefaults.response_language || null,
       };

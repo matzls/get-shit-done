@@ -18,6 +18,7 @@ const CLUSTERS = Object.freeze({
     'new-project',
     'discuss-phase',
     'plan-phase',
+    'plan-brief',
     'execute-phase',
     'help',
     'update',

@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const childProcess = require('child_process');
 const { execTool, execGit, platformWriteSync } = require('./shell-command-projection.cjs');
 
 // ─── Config Gate ─────────────────────────────────────────────────────────────
