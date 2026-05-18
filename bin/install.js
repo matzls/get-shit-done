@@ -786,6 +786,7 @@ function rewriteLegacyManagedNodeHookCommands(settings, absoluteRunner, opts) {
  */
 function buildCodexHookBlock(targetDir, opts) {
   const absoluteRunner = opts && opts.absoluteRunner;
+  if (opts && opts.skipUpdateCheckHook) return null;
   if (!absoluteRunner) return null;
   const eol = (opts && opts.eol) || '\n';
   const platform = (opts && opts.platform) || process.platform;
@@ -801,6 +802,10 @@ function buildCodexHookBlock(targetDir, opts) {
     `[[hooks.SessionStart.hooks]]${eol}` +
     `type = "command"${eol}` +
     `command = "${commandValue}"${eol}`;
+}
+
+function shouldSkipUpdateCheckHook(runtime) {
+  return runtime === 'codex' && process.env.GSD_SKIP_UPDATE_CHECK_HOOK === '1';
 }
 
 /**
@@ -934,13 +939,11 @@ function reconcileCodexHooksJsonSessionStart(targetDir, opts = {}) {
 }
 
 /**
- * Ensure Codex hooks.json contains exactly one managed SessionStart
- * gsd-check-update hook entry, while preserving user-owned entries.
+ * Legacy Codex hooks.json cleanup path.
  *
- * Codex accepts hook config from hooks.json and config.toml. To avoid the
- * startup warning for mixed representations in the same layer, GSD now stores
- * the managed SessionStart hook in hooks.json and keeps config.toml for
- * feature flags / agent metadata only.
+ * Codex hook configuration now uses config.toml for managed GSD hooks. Keep
+ * this helper only for migration/uninstall compatibility so old hooks.json
+ * entries can be removed without touching user-owned hooks.
  *
  * Supports both known hooks.json shapes:
  *   1) { "SessionStart": [...] }
@@ -8944,6 +8947,10 @@ function install(isGlobal, runtime = 'claude', options = {}) {
         const srcFile = path.join(codexHooksSrc, entry);
         if (!fs.statSync(srcFile).isFile()) continue;
         const destFile = path.join(codexHooksDest, entry);
+        if (shouldSkipUpdateCheckHook('codex') && /^gsd-check-update(?:-worker)?\.js$/.test(entry)) {
+          try { fs.rmSync(destFile, { force: true }); } catch (_) { /* best-effort */ }
+          continue;
+        }
         if (entry.endsWith('.js')) {
           let content = fs.readFileSync(srcFile, 'utf8');
           content = content.replace(/'\.claude'/g, configDirReplacement);
@@ -9002,11 +9009,24 @@ function install(isGlobal, runtime = 'claude', options = {}) {
       const codexHooksFeature = ensureCodexHooksFeature(configContent);
       configContent = setManagedCodexHooksOwnership(codexHooksFeature.content, codexHooksFeature.ownership);
 
-      // GSD-managed Codex hook payloads now live in hooks.json to avoid mixed
-      // representation warnings when a single layer contains both hooks.json
-      // and inline [hooks] entries. Keep config.toml focused on feature flags
-      // and agent metadata.
       const codexNodeRunner = resolveNodeRunner();
+      const checkUpdateFile = path.join(targetDir, 'hooks', 'gsd-check-update.js');
+      if (shouldSkipUpdateCheckHook('codex')) {
+        console.log(`  ${dim}↳${reset} Skipping Codex SessionStart update-check hook`);
+      } else if (!fs.existsSync(checkUpdateFile)) {
+        console.warn(`  ${yellow}⚠${reset}  Skipped Codex SessionStart hook registration — gsd-check-update.js not found at target`);
+      } else if (!codexNodeRunner) {
+        console.warn(`  ${yellow}⚠${reset}  Skipping Codex SessionStart hook registration — Node executable path unavailable (process.execPath is empty). See #2979 / #3002 / #3017.`);
+      } else {
+        const hookBlock = buildCodexHookBlock(targetDir, {
+          absoluteRunner: codexNodeRunner,
+          eol,
+          platform: process.platform,
+        });
+        if (hookBlock) {
+          configContent += hookBlock;
+        }
+      }
 
       // #2760 fix 3 — post-write schema validation. Parse the bytes we are
       // about to commit and assert they match Codex's expected shape. If
@@ -9045,22 +9065,7 @@ function install(isGlobal, runtime = 'claude', options = {}) {
         throw wrapped;
       }
       if (hasEnabledCodexHooksFeature(configContent)) {
-        const checkUpdateFile = path.join(targetDir, 'hooks', 'gsd-check-update.js');
-        if (!fs.existsSync(checkUpdateFile)) {
-          console.warn(`  ${yellow}⚠${reset}  Skipped Codex SessionStart hook registration — gsd-check-update.js not found at target`);
-        } else if (!codexNodeRunner) {
-          console.warn(`  ${yellow}⚠${reset}  Skipping Codex SessionStart hook registration — Node executable path unavailable (process.execPath is empty). See #2979 / #3002 / #3017.`);
-        } else {
-          const hookWrite = ensureCodexHooksJsonSessionStart(targetDir, {
-            absoluteRunner: codexNodeRunner,
-            platform: process.platform,
-          });
-          if (hookWrite.wrote) {
-            console.log(`  ${green}✓${reset} Configured Codex hooks (SessionStart via hooks.json)`);
-          } else {
-            console.log(`  ${green}✓${reset} Verified Codex hooks (SessionStart via hooks.json)`);
-          }
-        }
+        console.log(`  ${green}✓${reset} Configured Codex hooks (SessionStart via config.toml)`);
       }
     } catch (e) {
       // #2760 — schema-validation and write failures must be loud and fatal
@@ -11181,6 +11186,7 @@ if (process.env.GSD_TEST_MODE) {
     buildHookCommand,
     normalizeNodePath,
     resolveNodeRunner,
+    shouldSkipUpdateCheckHook,
     rewriteLegacyManagedNodeHookCommands,
     buildCodexHookBlock,
     rewriteLegacyCodexHookBlock,

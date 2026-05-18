@@ -121,15 +121,13 @@ function writeCodexConfigWithStaleHooks(dir, headerEol, bodyEol) {
     const configPath = path.join(tmpDir, '.codex', 'config.toml');
     const content = fs.readFileSync(configPath, 'utf-8');
 
-    assert.ok(
-      !content.includes('gsd-update-check'),
-      'Stale gsd-update-check entry must be removed from LF config.toml (#2698)'
-    );
+    assert.ok(!content.includes('gsd-update-check'), 'Stale gsd-update-check entry must be removed from LF config.toml (#2698)');
+    assert.ok(content.includes('gsd-check-update'), 'Current gsd-check-update hook must be written to config.toml');
     const hooksJsonCommands = readHooksSessionStartCommands(path.join(tmpDir, '.codex'));
     assert.equal(
       hooksJsonCommands.some((cmd) => cmd.includes('gsd-check-update')),
-      true,
-      'New gsd-check-update hook must appear in hooks.json after reinstall'
+      false,
+      'New gsd-check-update hook must not appear in hooks.json after reinstall'
     );
   });
 
@@ -144,15 +142,13 @@ function writeCodexConfigWithStaleHooks(dir, headerEol, bodyEol) {
     const configPath = path.join(tmpDir, '.codex', 'config.toml');
     const content = fs.readFileSync(configPath, 'utf-8');
 
-    assert.ok(
-      !content.includes('gsd-update-check'),
-      'Stale gsd-update-check entry must be removed from CRLF config.toml (#2698)'
-    );
+    assert.ok(!content.includes('gsd-update-check'), 'Stale gsd-update-check entry must be removed from CRLF config.toml (#2698)');
+    assert.ok(content.includes('gsd-check-update'), 'Current gsd-check-update hook must be written to config.toml');
     const hooksJsonCommands = readHooksSessionStartCommands(path.join(tmpDir, '.codex'));
     assert.equal(
       hooksJsonCommands.some((cmd) => cmd.includes('gsd-check-update')),
-      true,
-      'New gsd-check-update hook must appear in hooks.json after reinstall'
+      false,
+      'New gsd-check-update hook must not appear in hooks.json after reinstall'
     );
   });
 
@@ -179,6 +175,13 @@ function writeCodexConfigWithStaleHooks(dir, headerEol, bodyEol) {
         'Old code used two separate LF-only and CRLF-only regexes; neither matched mixed content.',
         'Fix consolidates to a single \\r?\\n-aware regex.',
       ].join(' ')
+    );
+    assert.ok(content.includes('gsd-check-update'), 'Current gsd-check-update hook must be written to config.toml');
+    const hooksJsonCommands = readHooksSessionStartCommands(path.join(tmpDir, '.codex'));
+    assert.equal(
+      hooksJsonCommands.some((cmd) => cmd.includes('gsd-check-update')),
+      false,
+      'New gsd-check-update hook must not appear in hooks.json after reinstall'
     );
   });
 });
