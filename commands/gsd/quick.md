@@ -20,6 +20,9 @@ Quick mode is the same system with a shorter path:
 - Spawns gsd-planner (quick mode) + gsd-executor(s)
 - Quick tasks live in `.planning/quick/` separate from planned phases
 - Updates STATE.md "Quick Tasks Completed" table (NOT ROADMAP.md)
+- Protects unrelated pre-existing dirty work: commit task-scoped files when the
+  boundary is clear, otherwise close as `verified_uncommitted` and ask before
+  any smart-commit-all follow-up.
 
 **Default:** Skips research, discussion, plan-checker, verifier. Use when you know exactly what to do.
 
@@ -155,7 +158,11 @@ When SUBCMD=resume and SLUG is set (already sanitized):
 When SUBCMD=run:
 
 Execute end-to-end.
-Preserve all workflow gates (validation, task description, planning, execution, state updates, commits).
+Preserve all workflow gates (validation, task description, planning, execution,
+state updates, commits). If unrelated pre-existing dirty work makes commit
+boundaries ambiguous, do not auto-commit the full worktree; record
+`verified_uncommitted` with validation and final git-status evidence, then offer
+smart-commit-all only as an explicit user-confirmed follow-up.
 
 </process>
 

@@ -753,6 +753,9 @@ SUMMARY.md and stop — the user must rerun with worktrees disabled.
 <constraints>
 - Execute all tasks in the plan
 - Commit each task atomically (code changes only)
+- If unrelated pre-existing changes make commit boundaries ambiguous, do not
+  commit the full worktree. Record the dirty-worktree closeout evidence in
+  SUMMARY.md and leave the task for the orchestrator's Step 8 decision gate.
 - Run the <submodule_commit_guard> bash block before every \`git commit\` if SUBMODULE_PATHS is non-empty
 - Create summary at: ${QUICK_DIR}/${quick_id}-SUMMARY.md
 - Do NOT commit docs artifacts (SUMMARY.md, STATE.md, PLAN.md) — the orchestrator handles the docs commit in Step 8
@@ -1083,6 +1086,33 @@ Use Edit tool to make these changes atomically
 
 Stage and commit quick task artifacts. This step MUST always run — even if the executor already committed some files (e.g. when running without worktree isolation). The `gsd-sdk query commit` command (or legacy `gsd-tools.cjs` commit) handles already-committed files gracefully.
 
+**Dirty worktree closeout rule:** Protect unrelated user work by default.
+
+Before staging, inspect the final dirty set and separate it into:
+- task-scoped files: the quick task plan artifacts, STATE.md row, and files the
+  executor explicitly changed for this task
+- pre-existing unrelated files: changes that were already dirty before this
+  quick task, or changes whose ownership cannot be tied to the task with clear
+  evidence
+
+If the boundary is clear, stage and commit only the task-scoped files. Do not
+stage unrelated dirty files.
+
+If the boundary is ambiguous, do not run a full-worktree commit and do not run
+smart-commit-all automatically. Instead:
+- leave the working tree untouched except for already-written task artifacts
+- update `${QUICK_DIR}/${quick_id}-SUMMARY.md` with:
+  - `Commit Status: verified_uncommitted`
+  - the reason commit boundaries were ambiguous
+  - scoped validation that passed
+  - final `git status --short` evidence
+  - affected task files, if known
+- set `commit_hash=verified_uncommitted`
+- report that smart-committing all current dirty work is available only as an
+  explicit user-confirmed follow-up
+- continue the completion report using `verified_uncommitted` as the commit
+  value so the task is not misreported as normally committed
+
 Build file list:
 - `${QUICK_DIR}/${quick_id}-PLAN.md`
 - `${QUICK_DIR}/${quick_id}-SUMMARY.md`
@@ -1165,5 +1195,6 @@ Ready for next task: /gsd:quick ${GSD_WS}
 - [ ] `${quick_id}-SUMMARY.md` created by executor
 - [ ] (--validate) `${quick_id}-VERIFICATION.md` created by verifier
 - [ ] STATE.md updated with quick task row (Status column when --validate)
-- [ ] Artifacts committed
+- [ ] Artifacts committed, or explicitly marked `verified_uncommitted` when
+      unrelated pre-existing dirty work makes commit boundaries ambiguous
 </success_criteria>

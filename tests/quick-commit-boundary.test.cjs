@@ -50,4 +50,23 @@ describe('quick workflow commit boundary (#1503)', () => {
       'Step 8 should state it must always run regardless of executor commits'
     );
   });
+
+  test('dirty worktree closeout protects unrelated changes', () => {
+    assert.ok(
+      content.includes('Dirty worktree closeout rule'),
+      'Step 8 should define dirty-worktree closeout behavior'
+    );
+    assert.ok(
+      content.includes('verified_uncommitted'),
+      'dirty-worktree closeout should use verified_uncommitted status'
+    );
+    assert.ok(
+      /do not run\s+smart-commit-all automatically/.test(content),
+      'dirty-worktree closeout must not auto-commit all user work'
+    );
+    assert.ok(
+      content.includes('final `git status --short` evidence'),
+      'dirty-worktree closeout should require final git status evidence'
+    );
+  });
 });
