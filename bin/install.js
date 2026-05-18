@@ -926,8 +926,18 @@ function reconcileCodexHooksJsonSessionStart(targetDir, opts = {}) {
   } else {
     delete hookTable.SessionStart;
   }
-  if (usesNestedHooksObject) parsed.hooks = hookTable;
+  if (usesNestedHooksObject) {
+    if (Object.keys(hookTable).length > 0) {
+      parsed.hooks = hookTable;
+    } else {
+      delete parsed.hooks;
+    }
+  }
 
+  if (currentContent !== null && Object.keys(parsed).length === 0) {
+    fs.rmSync(hooksJsonPath, { force: true });
+    return { changed: true, wrote: true, path: hooksJsonPath };
+  }
   const nextContent = `${JSON.stringify(parsed, null, 2)}\n`;
   const changed = currentContent !== nextContent;
   const shouldWrite = changed && (currentContent !== null || Object.keys(parsed).length > 0);
@@ -9066,6 +9076,10 @@ function install(isGlobal, runtime = 'claude', options = {}) {
       }
       if (hasEnabledCodexHooksFeature(configContent)) {
         console.log(`  ${green}✓${reset} Configured Codex hooks (SessionStart via config.toml)`);
+      }
+      const hooksJsonCleanup = removeCodexHooksJsonSessionStart(targetDir);
+      if (hooksJsonCleanup.wrote) {
+        console.log(`  ${green}✓${reset} Removed managed Codex SessionStart hook from hooks.json`);
       }
     } catch (e) {
       // #2760 — schema-validation and write failures must be loud and fatal

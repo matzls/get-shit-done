@@ -17,7 +17,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const installModule = require('../bin/install.js');
-const { readInstallState } = require('../get-shit-done/bin/lib/installer-migrations.cjs');
+const { readInstallState, writeInstallState } = require('../get-shit-done/bin/lib/installer-migrations.cjs');
 const { install, parseTomlToObject } = installModule;
 const { createTempDir, cleanup } = require('./helpers.cjs');
 const HOOKS_DIST = path.join(__dirname, '..', 'hooks', 'dist');
@@ -101,6 +101,28 @@ describe('#3357 — Codex install removes legacy GSD hooks.json entries', { conc
   });
 
   test('removes hooks.json when file only had legacy managed entry', () => {
+    fs.writeFileSync(
+      path.join(codexHome, 'hooks.json'),
+      JSON.stringify({ SessionStart: [legacyGsdHook(codexHome)] }, null, 2),
+    );
+
+    withCodexHome(codexHome, () => install(true, 'codex'));
+
+    assert.equal(fs.existsSync(path.join(codexHome, 'hooks.json')), false);
+    assert.equal(tomlGsdHookCount(codexHome), 1);
+  });
+
+  test('removes a reintroduced legacy hooks.json entry even when migration was already applied', () => {
+    writeInstallState(codexHome, {
+      schemaVersion: 1,
+      appliedMigrations: [
+        {
+          id: '2026-05-11-codex-legacy-hooks-json',
+          title: 'Remove legacy Codex hooks.json GSD hook registrations',
+          appliedAt: '2026-05-18T00:00:00.000Z',
+        },
+      ],
+    });
     fs.writeFileSync(
       path.join(codexHome, 'hooks.json'),
       JSON.stringify({ SessionStart: [legacyGsdHook(codexHome)] }, null, 2),
