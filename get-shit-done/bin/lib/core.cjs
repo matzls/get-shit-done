@@ -1110,17 +1110,79 @@ function getRoadmapPhaseInternal(cwd, phaseNum) {
  * GSD_AGENTS_DIR env var overrides the default path. Used in tests and for
  * installs where the agents directory is not co-located with gsd-tools.cjs.
  *
- * @returns {string} Absolute path to the agents directory
+ * @returns {{ agents_dir: string, agents_dir_source: string, agent_runtime: string }}
  */
-function getAgentsDir() {
-  if (process.env.GSD_AGENTS_DIR) {
-    return process.env.GSD_AGENTS_DIR;
+function detectAgentRuntime(cwd) {
+  if (process.env.GSD_RUNTIME) {
+    return String(process.env.GSD_RUNTIME).toLowerCase();
   }
-  if (process.env.GSD_RUNTIME === 'codex') {
+  if (cwd) {
+    try {
+      const configPath = path.join(cwd, '.planning', 'config.json');
+      if (fs.existsSync(configPath)) {
+        const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        if (parsed && typeof parsed === 'object' && parsed.runtime) {
+          return String(parsed.runtime).toLowerCase();
+        }
+      }
+    } catch { /* fall through */ }
+  }
+  if (process.env.CODEX_HOME) return 'codex';
+  return 'claude';
+}
+
+function hasAgentDefinition(agentsDir, agent) {
+  return fs.existsSync(path.join(agentsDir, `${agent}.md`)) ||
+    fs.existsSync(path.join(agentsDir, `${agent}.agent.md`));
+}
+
+function isCompleteAgentsDir(agentsDir) {
+  if (!fs.existsSync(agentsDir)) return false;
+  try {
+    if (!fs.statSync(agentsDir).isDirectory()) return false;
+  } catch {
+    return false;
+  }
+
+  const installProfile = detectInstallProfileForAgentsDir(agentsDir);
+  const expectedAgents = expectedAgentsForProfile(installProfile, Object.keys(MODEL_PROFILES));
+  return expectedAgents.length > 0 && expectedAgents.every(agent => hasAgentDefinition(agentsDir, agent));
+}
+
+function getRuntimeAgentsDir(runtime) {
+  if (runtime === 'codex') {
     return path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'agents');
   }
   // __dirname is get-shit-done/bin/lib/ → go up 3 levels to configDir
   return path.join(__dirname, '..', '..', '..', 'agents');
+}
+
+function getAgentsDir(cwd) {
+  if (process.env.GSD_AGENTS_DIR) {
+    return {
+      agents_dir: process.env.GSD_AGENTS_DIR,
+      agents_dir_source: 'env:GSD_AGENTS_DIR',
+      agent_runtime: detectAgentRuntime(cwd),
+    };
+  }
+
+  const runtime = detectAgentRuntime(cwd);
+  if (runtime === 'codex' && cwd) {
+    const localAgentsDir = path.join(cwd, '.codex', 'agents');
+    if (isCompleteAgentsDir(localAgentsDir)) {
+      return {
+        agents_dir: localAgentsDir,
+        agents_dir_source: 'repo-local',
+        agent_runtime: runtime,
+      };
+    }
+  }
+
+  return {
+    agents_dir: getRuntimeAgentsDir(runtime),
+    agents_dir_source: 'runtime-global',
+    agent_runtime: runtime,
+  };
 }
 
 /**
@@ -1130,10 +1192,11 @@ function getAgentsDir() {
  * Recognises both standard format (gsd-planner.md) and Copilot format
  * (gsd-planner.agent.md). Copilot renames agent files during install (#1512).
  *
- * @returns {{ agents_installed: boolean, missing_agents: string[], installed_agents: string[], agents_dir: string }}
+ * @returns {{ agents_installed: boolean, missing_agents: string[], installed_agents: string[], agents_dir: string, agents_dir_source: string, agent_runtime: string }}
  */
-function checkAgentsInstalled() {
-  const agentsDir = getAgentsDir();
+function checkAgentsInstalled(cwd) {
+  const agentResolution = getAgentsDir(cwd);
+  const agentsDir = agentResolution.agents_dir;
   const installMode = detectInstallModeForAgentsDir(agentsDir);
   const installProfile = detectInstallProfileForAgentsDir(agentsDir);
   const expectedAgents = expectedAgentsForProfile(installProfile, Object.keys(MODEL_PROFILES));
@@ -1146,6 +1209,8 @@ function checkAgentsInstalled() {
       missing_agents: expectedAgents,
       installed_agents: [],
       agents_dir: agentsDir,
+      agents_dir_source: agentResolution.agents_dir_source,
+      agent_runtime: agentResolution.agent_runtime,
       install_mode: installMode,
       install_profile: installProfile,
       expected_agents: expectedAgents,
@@ -1168,6 +1233,8 @@ function checkAgentsInstalled() {
     missing_agents: missing,
     installed_agents: installed,
     agents_dir: agentsDir,
+    agents_dir_source: agentResolution.agents_dir_source,
+    agent_runtime: agentResolution.agent_runtime,
     install_mode: installMode,
     install_profile: installProfile,
     expected_agents: expectedAgents,

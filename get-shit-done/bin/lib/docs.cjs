@@ -261,9 +261,12 @@ function cmdDocsInit(cwd, raw) {
   };
   // Inject project_root and agent installation status (mirrors withProjectRoot in init.cjs)
   result.project_root = cwd;
-  const agentStatus = checkAgentsInstalled();
+  const agentStatus = checkAgentsInstalled(cwd);
   result.agents_installed = agentStatus.agents_installed;
   result.missing_agents = agentStatus.missing_agents;
+  result.agent_runtime = agentStatus.agent_runtime;
+  result.agents_dir = agentStatus.agents_dir;
+  result.agents_dir_source = agentStatus.agents_dir_source;
   output(result, raw);
 }
 

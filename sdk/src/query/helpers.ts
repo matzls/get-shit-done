@@ -139,6 +139,57 @@ export function resolveAgentsDir(runtime: Runtime = 'claude'): string {
   return join(getRuntimeConfigDir(runtime), 'agents');
 }
 
+export type AgentsDirSource = 'env:GSD_AGENTS_DIR' | 'repo-local' | 'runtime-global';
+
+export interface AgentsDirResolution {
+  agentsDir: string;
+  source: AgentsDirSource;
+  runtime: Runtime;
+}
+
+function hasAgentDefinition(agentsDir: string, agent: string): boolean {
+  return existsSync(join(agentsDir, `${agent}.md`)) ||
+    existsSync(join(agentsDir, `${agent}.agent.md`));
+}
+
+export function isCompleteAgentsDir(agentsDir: string, allAgents: string[]): boolean {
+  if (!existsSync(agentsDir)) return false;
+  try {
+    if (!statSync(agentsDir).isDirectory()) return false;
+  } catch {
+    return false;
+  }
+
+  const { expected_agents: expectedAgents } = expectedAgentsForAgentsDir(agentsDir, allAgents);
+  return expectedAgents.length > 0 && expectedAgents.every(agent => hasAgentDefinition(agentsDir, agent));
+}
+
+/**
+ * Resolve the agents directory plus provenance for operator-facing checks.
+ *
+ * `GSD_AGENTS_DIR` is an explicit override. For Codex project workflows, a
+ * complete repo-local `./.codex/agents` install wins over ambient global
+ * discovery so local installs do not false-negative against `~/.codex`.
+ */
+export function resolveAgentsDirInfo(
+  runtime: Runtime = 'claude',
+  projectDir?: string,
+  allAgents: string[] = [],
+): AgentsDirResolution {
+  if (process.env.GSD_AGENTS_DIR) {
+    return { agentsDir: process.env.GSD_AGENTS_DIR, source: 'env:GSD_AGENTS_DIR', runtime };
+  }
+
+  if (runtime === 'codex' && projectDir && allAgents.length > 0) {
+    const localAgentsDir = join(projectDir, '.codex', 'agents');
+    if (isCompleteAgentsDir(localAgentsDir, allAgents)) {
+      return { agentsDir: localAgentsDir, source: 'repo-local', runtime };
+    }
+  }
+
+  return { agentsDir: join(getRuntimeConfigDir(runtime), 'agents'), source: 'runtime-global', runtime };
+}
+
 /**
  * Resolve the runtime-global skills base directory.
  *

@@ -10,7 +10,8 @@ import { join } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 import { GSDError } from '../errors.js';
 
-import { verifyKeyLinks, validateConsistency, validateHealth, regexForKeyLinkPattern } from './validate.js';
+import { verifyKeyLinks, validateConsistency, validateHealth, validateAgents, regexForKeyLinkPattern } from './validate.js';
+import { MODEL_PROFILES } from './config-query.js';
 
 // ─── regexForKeyLinkPattern ────────────────────────────────────────────────
 
@@ -23,6 +24,46 @@ describe('regexForKeyLinkPattern', () => {
   it('falls back to literal match for nested-quantifier patterns', () => {
     const re = regexForKeyLinkPattern('(a+)+');
     expect(re.source).toContain('\\');
+  });
+});
+
+describe('validateAgents', () => {
+  let tmpDir: string;
+  let previousCodexHome: string | undefined;
+  let previousGsdAgentsDir: string | undefined;
+
+  beforeEach(async () => {
+    previousCodexHome = process.env.CODEX_HOME;
+    previousGsdAgentsDir = process.env.GSD_AGENTS_DIR;
+    tmpDir = await mkdtemp(join(tmpdir(), 'gsd-validate-agents-'));
+    await mkdir(join(tmpDir, '.planning'), { recursive: true });
+    await writeFile(join(tmpDir, '.planning', 'config.json'), JSON.stringify({ runtime: 'codex' }));
+  });
+
+  afterEach(async () => {
+    if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = previousCodexHome;
+    if (previousGsdAgentsDir === undefined) delete process.env.GSD_AGENTS_DIR;
+    else process.env.GSD_AGENTS_DIR = previousGsdAgentsDir;
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('reports repo-local Codex agent resolution diagnostics', async () => {
+    const localAgentsDir = join(tmpDir, '.codex', 'agents');
+    await mkdir(localAgentsDir, { recursive: true });
+    for (const name of Object.keys(MODEL_PROFILES)) {
+      await writeFile(join(localAgentsDir, `${name}.md`), '# stub');
+    }
+    delete process.env.GSD_AGENTS_DIR;
+    process.env.CODEX_HOME = join(tmpDir, 'ambient-codex-home');
+
+    const result = await validateAgents([], tmpDir);
+    const data = result.data as Record<string, unknown>;
+    expect(data.agents_dir).toBe(localAgentsDir);
+    expect(data.agents_dir_source).toBe('repo-local');
+    expect(data.agent_runtime).toBe('codex');
+    expect(data.agents_found).toBe(true);
+    expect(data.missing).toEqual([]);
   });
 });
 

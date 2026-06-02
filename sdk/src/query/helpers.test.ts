@@ -19,6 +19,7 @@ import {
   normalizeMd,
   resolvePathUnderProject,
   resolveAgentsDir,
+  resolveAgentsDirInfo,
   getRuntimeConfigDir,
   detectRuntime,
   resolveGlobalSkillsBase,
@@ -457,6 +458,39 @@ describe('resolveAgentsDir (runtime-aware)', () => {
   it('appends /agents to the per-runtime config dir', () => {
     process.env.CODEX_HOME = '/codex';
     expect(resolveAgentsDir('codex')).toBe(join('/codex', 'agents'));
+  });
+
+  it('prefers a complete repo-local Codex agents directory', async () => {
+    const projectDir = await mkdtemp(join(tmpdir(), 'gsd-local-agents-'));
+    try {
+      const agentsDir = join(projectDir, '.codex', 'agents');
+      await mkdir(agentsDir, { recursive: true });
+      await writeFile(join(agentsDir, 'gsd-one.md'), '# one');
+      await writeFile(join(agentsDir, 'gsd-two.md'), '# two');
+      process.env.CODEX_HOME = join(projectDir, 'global-codex');
+
+      const result = resolveAgentsDirInfo('codex', projectDir, ['gsd-one', 'gsd-two']);
+      expect(result.agentsDir).toBe(agentsDir);
+      expect(result.source).toBe('repo-local');
+    } finally {
+      await rm(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not select an incomplete repo-local Codex agents directory', async () => {
+    const projectDir = await mkdtemp(join(tmpdir(), 'gsd-local-agents-'));
+    try {
+      const agentsDir = join(projectDir, '.codex', 'agents');
+      await mkdir(agentsDir, { recursive: true });
+      await writeFile(join(agentsDir, 'gsd-one.md'), '# one');
+      process.env.CODEX_HOME = join(projectDir, 'global-codex');
+
+      const result = resolveAgentsDirInfo('codex', projectDir, ['gsd-one', 'gsd-two']);
+      expect(result.agentsDir).toBe(join(process.env.CODEX_HOME, 'agents'));
+      expect(result.source).toBe('runtime-global');
+    } finally {
+      await rm(projectDir, { recursive: true, force: true });
+    }
   });
 });
 

@@ -816,7 +816,7 @@ function cmdValidateHealth(cwd, options, raw) {
   // Verify GSD agents are installed. Missing agents cause Task(subagent_type=...)
   // to silently fall back to general-purpose, losing specialized instructions.
   try {
-    const agentStatus = checkAgentsInstalled();
+    const agentStatus = checkAgentsInstalled(cwd);
     if (!agentStatus.agents_installed) {
       if (agentStatus.installed_agents.length === 0) {
         addIssue('warning', 'W010',
@@ -1192,10 +1192,12 @@ function cmdValidateHealth(cwd, options, raw) {
  * Returns detailed information about which agents are installed and which are missing.
  */
 function cmdValidateAgents(cwd, raw) {
-  const agentStatus = checkAgentsInstalled();
+  const agentStatus = checkAgentsInstalled(cwd);
 
   output({
     agents_dir: agentStatus.agents_dir,
+    agents_dir_source: agentStatus.agents_dir_source,
+    agent_runtime: agentStatus.agent_runtime,
     install_mode: agentStatus.install_mode,
     install_profile: agentStatus.install_profile,
     agents_found: agentStatus.agents_installed,

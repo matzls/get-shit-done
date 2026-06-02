@@ -25,13 +25,13 @@ import { join, relative } from 'node:path';
 import { homedir } from 'node:os';
 
 import { loadConfig } from '../config.js';
-import { resolveModel } from './config-query.js';
+import { MODEL_PROFILES, resolveModel } from './config-query.js';
 import {
   detectRuntime,
   planningPaths,
   normalizePhaseName,
   phaseTokenMatches,
-  resolveAgentsDir,
+  resolveAgentsDirInfo,
   toPosixPath,
 } from './helpers.js';
 import {
@@ -303,7 +303,8 @@ export const initNewProject: QueryHandler = async (_args, projectDir, workstream
     getModelAlias('gsd-roadmapper', projectDir),
   ]);
   const runtime = detectRuntime(config as { runtime?: unknown });
-  const agentsDir = resolveAgentsDir(runtime);
+  const agentResolution = resolveAgentsDirInfo(runtime, projectDir, Object.keys(MODEL_PROFILES));
+  const agentsDir = agentResolution.agentsDir;
   const gitInfo = gitWorktreeInfo(projectDir);
   const missingRequiredAgents = NEW_PROJECT_REQUIRED_AGENTS.filter(
     agent => !hasAgentDefinition(agentsDir, agent),
@@ -340,8 +341,9 @@ export const initNewProject: QueryHandler = async (_args, projectDir, workstream
     exa_search_available: hasExaSearch,
 
     project_path: '.planning/PROJECT.md',
-    agent_runtime: runtime,
+    agent_runtime: agentResolution.runtime,
     agents_dir: agentsDir,
+    agents_dir_source: agentResolution.source,
     required_agents: NEW_PROJECT_REQUIRED_AGENTS,
     required_agents_installed: missingRequiredAgents.length === 0,
     missing_required_agents: missingRequiredAgents,

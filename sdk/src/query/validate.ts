@@ -23,7 +23,7 @@ import { loadConfig } from '../config.js';
 import { MODEL_PROFILES } from './config-query.js';
 import { GSDError, ErrorClassification } from '../errors.js';
 import { extractFrontmatter, parseMustHavesBlock } from './frontmatter.js';
-import { detectRuntime, escapeRegex, expectedAgentsForAgentsDir, normalizePhaseName, planningPaths, resolveAgentsDir, resolvePathUnderProject } from './helpers.js';
+import { detectRuntime, escapeRegex, expectedAgentsForAgentsDir, normalizePhaseName, planningPaths, resolveAgentsDirInfo, resolvePathUnderProject, type AgentsDirResolution } from './helpers.js';
 import type { QueryHandler } from './utils.js';
 
 /** Max length for key_links regex patterns (ReDoS mitigation). */
@@ -946,14 +946,15 @@ export const validateHealth: QueryHandler = async (args, projectDir, workstream)
  * Default agents directory — mirrors runtime-aware init checks:
  * `GSD_AGENTS_DIR`, else the detected runtime config directory's `agents/`.
  */
-async function getAgentsDirForValidateAgents(projectDir: string): Promise<string> {
+async function getAgentsDirForValidateAgents(projectDir: string): Promise<AgentsDirResolution> {
   let config: { runtime?: unknown } | undefined;
   try {
     config = await loadConfig(projectDir) as { runtime?: unknown };
   } catch {
     config = undefined;
   }
-  return resolveAgentsDir(detectRuntime(config, projectDir));
+  const runtime = detectRuntime(config, projectDir);
+  return resolveAgentsDirInfo(runtime, projectDir, Object.keys(MODEL_PROFILES));
 }
 
 /**
@@ -962,7 +963,8 @@ async function getAgentsDirForValidateAgents(projectDir: string): Promise<string
  * Port of `cmdValidateAgents` from `verify.cjs` lines 997–1009 (uses `checkAgentsInstalled` from core).
  */
 export const validateAgents: QueryHandler = async (_args, projectDir) => {
-  const agentsDir = await getAgentsDirForValidateAgents(projectDir);
+  const resolution = await getAgentsDirForValidateAgents(projectDir);
+  const agentsDir = resolution.agentsDir;
   const {
     install_mode: installMode,
     install_profile: installProfile,
@@ -975,6 +977,8 @@ export const validateAgents: QueryHandler = async (_args, projectDir) => {
     return {
       data: {
         agents_dir: agentsDir,
+        agents_dir_source: resolution.source,
+        agent_runtime: resolution.runtime,
         install_mode: installMode,
         install_profile: installProfile,
         agents_found: false,
@@ -999,6 +1003,8 @@ export const validateAgents: QueryHandler = async (_args, projectDir) => {
   return {
     data: {
       agents_dir: agentsDir,
+      agents_dir_source: resolution.source,
+      agent_runtime: resolution.runtime,
       install_mode: installMode,
       install_profile: installProfile,
       agents_found: agentsInstalled,

@@ -49,9 +49,12 @@ function withProjectRoot(cwd, result) {
   // Inject agent installation status into all init outputs (#1371).
   // Workflows that spawn named subagents use this to detect when agents
   // are missing and would silently fall back to general-purpose.
-  const agentStatus = checkAgentsInstalled();
+  const agentStatus = checkAgentsInstalled(cwd);
   result.agents_installed = agentStatus.agents_installed;
   result.missing_agents = agentStatus.missing_agents;
+  result.agent_runtime = agentStatus.agent_runtime;
+  result.agents_dir = agentStatus.agents_dir;
+  result.agents_dir_source = agentStatus.agents_dir_source;
   // Inject response_language into all init outputs (#1399).
   // Workflows propagate this to subagent prompts so user-facing questions
   // stay in the configured language across phase boundaries.

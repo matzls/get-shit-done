@@ -146,6 +146,39 @@ describe('withProjectRoot', () => {
     }
   });
 
+  it('reports repo-local Codex agents before ambient CODEX_HOME', async () => {
+    const { MODEL_PROFILES } = await import('./config-query.js');
+    const localAgentsDir = join(tmpDir, '.codex', 'agents');
+    await mkdir(localAgentsDir, { recursive: true });
+    for (const name of Object.keys(MODEL_PROFILES)) {
+      await writeFile(join(localAgentsDir, `${name}.md`), '# stub');
+    }
+    await writeFile(join(tmpDir, '.planning', 'config.json'), JSON.stringify({
+      runtime: 'codex',
+      model_profile: 'balanced',
+      commit_docs: false,
+      workflow: { research: true, plan_check: true, verifier: true, nyquist_validation: true },
+    }));
+
+    const prevAgents = process.env.GSD_AGENTS_DIR;
+    const prevCodex = process.env.CODEX_HOME;
+    delete process.env.GSD_AGENTS_DIR;
+    process.env.CODEX_HOME = join(tmpDir, 'ambient-codex-home');
+    try {
+      const enriched = withProjectRoot(tmpDir, {}, { runtime: 'codex' }) as Record<string, unknown>;
+      expect(enriched.agents_installed).toBe(true);
+      expect(enriched.missing_agents).toEqual([]);
+      expect(enriched.agent_runtime).toBe('codex');
+      expect(enriched.agents_dir).toBe(localAgentsDir);
+      expect(enriched.agents_dir_source).toBe('repo-local');
+    } finally {
+      if (prevAgents === undefined) delete process.env.GSD_AGENTS_DIR;
+      else process.env.GSD_AGENTS_DIR = prevAgents;
+      if (prevCodex === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = prevCodex;
+    }
+  });
+
   it('reports agents_installed: true for a complete minimal install manifest', async () => {
     const installDir = join(tmpDir, 'minimal-install');
     const agentsDir = join(installDir, 'agents');

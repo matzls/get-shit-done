@@ -310,6 +310,33 @@ describe('checkAgentsInstalled: Copilot .agent.md format (#1512)', () => {
     assert.strictEqual(output.agents_found, true);
     assert.deepStrictEqual(output.missing, []);
   });
+
+  test('repo-local Codex agents win over ambient CODEX_HOME', () => {
+    const localAgentsDir = path.join(tmpDir, '.codex', 'agents');
+    fs.mkdirSync(localAgentsDir, { recursive: true });
+    for (const name of EXPECTED_AGENTS) {
+      fs.writeFileSync(
+        path.join(localAgentsDir, `${name}.md`),
+        `---\nname: ${name}\ndescription: Test agent\n---\nAgent content.\n`
+      );
+    }
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ runtime: 'codex', workflow: { nyquist_validation: true } }, null, 2),
+    );
+
+    const result = runGsdTools('validate agents --raw', tmpDir, {
+      CODEX_HOME: path.join(tmpDir, 'ambient-codex-home'),
+    });
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.agent_runtime, 'codex');
+    assert.strictEqual(output.agents_dir, fs.realpathSync(localAgentsDir));
+    assert.strictEqual(output.agents_dir_source, 'repo-local');
+    assert.strictEqual(output.agents_found, true);
+    assert.deepStrictEqual(output.missing, []);
+  });
 });
 
 // ─── validate agents subcommand ─────────────────────────────────────────────

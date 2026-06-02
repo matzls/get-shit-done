@@ -31,7 +31,7 @@ import { findPhase } from './phase.js';
 import { getMilestonePhaseFilter } from './state.js';
 import { roadmapGetPhase, getMilestoneInfo, extractCurrentMilestone, extractPhasesFromSection } from './roadmap.js';
 import { determinePhaseStatus } from './progress.js';
-import { planningPaths, normalizePhaseName, toPosixPath, resolveAgentsDir, detectRuntime, expectedAgentsForAgentsDir } from './helpers.js';
+import { planningPaths, normalizePhaseName, toPosixPath, resolveAgentsDirInfo, detectRuntime, expectedAgentsForAgentsDir } from './helpers.js';
 import { generatePhaseSlug, assertSafeProjectCode } from './phase-lifecycle-policy.js';
 import type { QueryHandler } from './utils.js';
 
@@ -204,27 +204,49 @@ function getLatestCompletedMilestone(projectDir: string): { version: string; nam
  *
  * Port of checkAgentsInstalled from core.cjs lines 1274-1306.
  */
-function checkAgentsInstalled(config?: { runtime?: unknown }, projectDir?: string): { agents_installed: boolean; missing_agents: string[] } {
+function checkAgentsInstalled(config?: { runtime?: unknown }, projectDir?: string): {
+  agents_installed: boolean;
+  missing_agents: string[];
+  installed_agents: string[];
+  agent_runtime: string;
+  agents_dir: string;
+  agents_dir_source: string;
+} {
   const runtime = detectRuntime(config, projectDir);
-  const agentsDir = resolveAgentsDir(runtime);
+  const resolution = resolveAgentsDirInfo(runtime, projectDir, Object.keys(MODEL_PROFILES));
+  const agentsDir = resolution.agentsDir;
   const { expected_agents: expectedAgents } = expectedAgentsForAgentsDir(agentsDir, Object.keys(MODEL_PROFILES));
 
   if (!existsSync(agentsDir)) {
-    return { agents_installed: false, missing_agents: expectedAgents };
+    return {
+      agents_installed: false,
+      missing_agents: expectedAgents,
+      installed_agents: [],
+      agent_runtime: resolution.runtime,
+      agents_dir: agentsDir,
+      agents_dir_source: resolution.source,
+    };
   }
 
+  const installed: string[] = [];
   const missing: string[] = [];
   for (const agent of expectedAgents) {
     const agentFile = join(agentsDir, `${agent}.md`);
     const agentFileCopilot = join(agentsDir, `${agent}.agent.md`);
     if (!existsSync(agentFile) && !existsSync(agentFileCopilot)) {
       missing.push(agent);
+    } else {
+      installed.push(agent);
     }
   }
 
   return {
-    agents_installed: missing.length === 0,
+    agents_installed: installed.length > 0 && missing.length === 0,
     missing_agents: missing,
+    installed_agents: installed,
+    agent_runtime: resolution.runtime,
+    agents_dir: agentsDir,
+    agents_dir_source: resolution.source,
   };
 }
 
@@ -354,6 +376,9 @@ export function withProjectRoot(
   const agentStatus = checkAgentsInstalled(config, projectDir);
   result.agents_installed = agentStatus.agents_installed;
   result.missing_agents = agentStatus.missing_agents;
+  result.agent_runtime = agentStatus.agent_runtime;
+  result.agents_dir = agentStatus.agents_dir;
+  result.agents_dir_source = agentStatus.agents_dir_source;
 
   const responseLang = config?.response_language;
   if (responseLang) {

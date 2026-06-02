@@ -18,7 +18,7 @@ import { join, relative } from 'node:path';
 
 import { loadConfig } from '../config.js';
 import { MODEL_PROFILES, resolveModel } from './config-query.js';
-import { detectRuntime, expectedAgentsForAgentsDir, resolveAgentsDir, toPosixPath } from './helpers.js';
+import { detectRuntime, expectedAgentsForAgentsDir, resolveAgentsDirInfo, toPosixPath } from './helpers.js';
 import type { QueryHandler } from './utils.js';
 
 const GSD_MARKER = '<!-- generated-by: gsd-doc-writer -->';
@@ -204,13 +204,26 @@ export function detectMonorepoWorkspaces(cwd: string): string[] {
 /**
  * Port of `checkAgentsInstalled` from core.cjs (same logic as init.ts).
  */
-function checkAgentsInstalled(config?: { runtime?: unknown }, projectDir?: string): { agents_installed: boolean; missing_agents: string[] } {
+function checkAgentsInstalled(config?: { runtime?: unknown }, projectDir?: string): {
+  agents_installed: boolean;
+  missing_agents: string[];
+  agent_runtime: string;
+  agents_dir: string;
+  agents_dir_source: string;
+} {
   const runtime = detectRuntime(config, projectDir);
-  const agentsDir = resolveAgentsDir(runtime);
+  const resolution = resolveAgentsDirInfo(runtime, projectDir, Object.keys(MODEL_PROFILES));
+  const agentsDir = resolution.agentsDir;
   const { expected_agents: expectedAgents } = expectedAgentsForAgentsDir(agentsDir, Object.keys(MODEL_PROFILES));
 
   if (!existsSync(agentsDir)) {
-    return { agents_installed: false, missing_agents: expectedAgents };
+    return {
+      agents_installed: false,
+      missing_agents: expectedAgents,
+      agent_runtime: resolution.runtime,
+      agents_dir: agentsDir,
+      agents_dir_source: resolution.source,
+    };
   }
 
   const missing: string[] = [];
@@ -225,6 +238,9 @@ function checkAgentsInstalled(config?: { runtime?: unknown }, projectDir?: strin
   return {
     agents_installed: missing.length === 0,
     missing_agents: missing,
+    agent_runtime: resolution.runtime,
+    agents_dir: agentsDir,
+    agents_dir_source: resolution.source,
   };
 }
 
@@ -252,6 +268,9 @@ export const docsInit: QueryHandler = async (_args, projectDir) => {
     project_root: projectDir,
     agents_installed: agentStatus.agents_installed,
     missing_agents: agentStatus.missing_agents,
+    agent_runtime: agentStatus.agent_runtime,
+    agents_dir: agentStatus.agents_dir,
+    agents_dir_source: agentStatus.agents_dir_source,
   };
 
   return { data };
