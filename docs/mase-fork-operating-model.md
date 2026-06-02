@@ -5,7 +5,7 @@ status: active
 audience: "agents-maintainers"
 canonicality: canonical
 created: 2026-05-04
-updated: 2026-05-16
+updated: 2026-06-02
 ---
 
 # Mase GSD Fork Operating Model
@@ -16,10 +16,14 @@ maintenance fork, not an upstream contribution workspace.
 ## Remote Model
 
 - `origin` is Mase's fork: `https://github.com/matzls/get-shit-done.git`
-- `upstream` is the official project: `https://github.com/gsd-build/get-shit-done.git`
+- `upstream` is the official project: `https://github.com/open-gsd/gsd-core.git`
 
 Upstream is one-way. Fetch and merge from upstream, but never push to upstream.
 Push local work only to origin.
+
+The retired `https://github.com/gsd-build/get-shit-done.git` repository is not
+a trusted intake source. It was briefly merged on 2026-06-02 and then reverted;
+do not re-use it for future reconciliation.
 
 The local remote config should protect this mechanically:
 
@@ -42,7 +46,8 @@ it byte-for-byte aligned with `upstream/main` so local deltas stay reviewable.
 ## Upstream Intake
 
 Use this procedure to pull in upstream improvements while preserving local
-customizations:
+customizations after the `upstream-main` mirror has been established against
+the current Open GSD upstream:
 
 ```bash
 git fetch upstream --prune
@@ -61,6 +66,11 @@ If the rebase conflicts, resolve each overlap deliberately:
 - `adapt`: upstream fixed the general case, but Mase's Codex setup still needs
   a local overlay
 - `defer`: keep the old behavior for now and record the follow-up
+
+After the 2026-06-02 upstream move, do not assume any old `upstream-main`
+branch or abandoned-repo merge base is authoritative. First verify
+`upstream/main`, create or reset the mirror branch intentionally, and reconcile
+from Open GSD only.
 
 ## Fork Install And Update
 

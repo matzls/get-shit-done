@@ -12,10 +12,14 @@ only to `origin`.
 ## Remotes
 
 - `origin`: `https://github.com/matzls/get-shit-done.git`
-- `upstream`: `https://github.com/gsd-build/get-shit-done.git`
+- `upstream`: `https://github.com/open-gsd/gsd-core.git`
 
 `upstream` is read-only for this fork. Do not push branches, tags, or fixes to
 `upstream`. Push only to `origin`.
+
+The previous `gsd-build/get-shit-done` upstream is retired and must not be used
+as an intake source. If old merge commits or remote-tracking refs mention it,
+treat them as historical rollback evidence only, not as trusted source code.
 
 ## Branch Model
 
