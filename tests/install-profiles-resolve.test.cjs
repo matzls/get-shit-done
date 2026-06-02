@@ -42,7 +42,6 @@ describe('PROFILES map', () => {
       'new-project',
       'phase',
       'plan-phase',
-      'surface',
       'update',
     ]);
   });

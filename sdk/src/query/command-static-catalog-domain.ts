@@ -20,8 +20,7 @@ import { uatRenderCheckpoint, auditUat } from './uat.js';
 // requires('./lib/intel.cjs') and calls the CJS functions in-process.
 import { writeProfile, generateClaudeProfile, generateDevPreferences, generateClaudeMd } from './profile-output.js';
 import { phaseMvpMode, taskIsBehaviorAdding, userStoryValidate } from './mvp.js';
-import { worktreeCleanupWave, worktreeReapOrphans } from './worktree.js';
-import { promptBudget } from './prompt-budget.js';
+import { worktreeCleanupWave } from './worktree.js';
 
 export const DOMAIN_STATIC_CATALOG: ReadonlyArray<readonly [string, QueryHandler]> = [
   ['agent-skills', agentSkills],
@@ -67,8 +66,6 @@ export const DOMAIN_STATIC_CATALOG: ReadonlyArray<readonly [string, QueryHandler
   ['workstream progress', workstreamProgress],
   ['worktree.cleanup-wave', worktreeCleanupWave],
   ['worktree cleanup-wave', worktreeCleanupWave],
-  ['worktree.reap-orphans', worktreeReapOrphans],
-  ['worktree reap-orphans', worktreeReapOrphans],
   ['docs-init', docsInit],
   ['websearch', websearch],
   ['learnings.copy', learningsCopy],
@@ -107,5 +104,4 @@ export const DOMAIN_STATIC_CATALOG: ReadonlyArray<readonly [string, QueryHandler
   ['task is-behavior-adding', taskIsBehaviorAdding],
   ['user-story.validate', userStoryValidate],
   ['user-story validate', userStoryValidate],
-  ['prompt-budget', promptBudget],
 ] as const;

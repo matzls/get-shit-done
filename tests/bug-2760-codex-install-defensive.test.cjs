@@ -91,11 +91,29 @@ function readHooksSessionStartCommands(codexHome) {
     ? parsed.hooks
     : parsed;
   const sessionStart = Array.isArray(table.SessionStart) ? table.SessionStart : [];
+  return sessionStart.flatMap((entry) => [
+    ...(typeof entry?.command === 'string' ? [entry.command] : []),
+    ...(Array.isArray(entry?.hooks)
+      ? entry.hooks.map((hook) => hook && hook.command).filter((cmd) => typeof cmd === 'string')
+      : []),
+  ]);
+}
+
+function readTomlSessionStartCommands(codexHome) {
+  const parsed = parseTomlToObject(readCodexConfig(codexHome));
+  const sessionStart = parsed.hooks && Array.isArray(parsed.hooks.SessionStart)
+    ? parsed.hooks.SessionStart
+    : [];
   return sessionStart.flatMap((entry) =>
     (Array.isArray(entry?.hooks) ? entry.hooks : [])
       .map((hook) => hook && hook.command)
       .filter((cmd) => typeof cmd === 'string')
   );
+}
+
+function readHooksJsonManagedCommands(codexHome) {
+  return readHooksSessionStartCommands(codexHome)
+    .filter((cmd) => /gsd-check-update\.js/.test(cmd));
 }
 
 describe('#2760 defect 3 — Hooks AoT preservation across install/uninstall/reinstall', () => {
@@ -111,22 +129,12 @@ describe('#2760 defect 3 — Hooks AoT preservation across install/uninstall/rei
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  test('fresh install emits the two-level nested AoT schema (#2773)', () => {
-    // Codex 0.124.0+ requires [[hooks.SessionStart]] + [[hooks.SessionStart.hooks]]
-    // with type = "command". Neither the flat [[hooks]] + event field form nor
-    // the single-block [[hooks.SessionStart]] form without .hooks is accepted.
+  test('fresh install registers the managed SessionStart hook in hooks.json', () => {
     writeCodexConfig(codexHome, '');
     runCodexInstall(codexHome);
-    const content = readCodexConfig(codexHome);
-    const parsed = parseTomlToObject(content);
 
-    const sessionStartCommands = readHooksSessionStartCommands(codexHome);
-    const managed = sessionStartCommands.filter((cmd) => /gsd-check-update/.test(cmd));
-    assert.equal(managed.length, 1, 'hooks.json must contain exactly one managed gsd-check-update command');
-    assert.ok(
-      !parsed.hooks || !Array.isArray(parsed.hooks.SessionStart),
-      'config.toml should not carry managed SessionStart hooks for GSD'
-    );
+    assert.equal(readTomlSessionStartCommands(codexHome).filter((cmd) => /gsd-check-update\.js/.test(cmd)).length, 0);
+    assert.equal(readHooksJsonManagedCommands(codexHome).length, 1, 'hooks.json must contain exactly one managed gsd-check-update command');
   });
 
   test('preserves user [[hooks.SessionStart]] entries and registers managed GSD handler in hooks.json', () => {
@@ -170,11 +178,7 @@ describe('#2760 defect 3 — Hooks AoT preservation across install/uninstall/rei
       allCommands.includes('echo second user hook'),
       'second user hook preserved: ' + JSON.stringify(allCommands)
     );
-    const hooksJsonCommands = readHooksSessionStartCommands(codexHome);
-    assert.ok(
-      hooksJsonCommands.some((cmd) => typeof cmd === 'string' && /gsd-check-update/.test(cmd)),
-      'GSD handler must appear in hooks.json SessionStart entries: ' + JSON.stringify(hooksJsonCommands)
-    );
+    assert.equal(readHooksJsonManagedCommands(codexHome).length, 1, 'GSD handler must appear once in hooks.json');
     assert.ok(!Array.isArray(parsed.hooks), 'no flat [[hooks]] entries');
   });
 
@@ -198,9 +202,7 @@ describe('#2760 defect 3 — Hooks AoT preservation across install/uninstall/rei
 
     // Old flat form must be gone.
     assert.ok(!Array.isArray(parsed.hooks), 'flat [[hooks]] must be stripped on upgrade');
-    // Only one GSD hook entry must exist (no duplication) in hooks.json.
-    const hooksJsonCommands = readHooksSessionStartCommands(codexHome);
-    const gsdHandlers = hooksJsonCommands.filter((cmd) => /gsd-check-update/.test(cmd));
+    const gsdHandlers = readHooksJsonManagedCommands(codexHome);
     assert.strictEqual(gsdHandlers.length, 1, 'exactly one managed handler after upgrade');
   });
 
@@ -222,8 +224,7 @@ describe('#2760 defect 3 — Hooks AoT preservation across install/uninstall/rei
     const content = readCodexConfig(codexHome);
     const parsed = parseTomlToObject(content);
 
-    const hooksJsonCommands = readHooksSessionStartCommands(codexHome);
-    const gsdHandlers = hooksJsonCommands.filter((cmd) => /gsd-check-update/.test(cmd));
+    const gsdHandlers = readHooksJsonManagedCommands(codexHome);
     assert.strictEqual(gsdHandlers.length, 1, 'exactly one managed handler after upgrade from PR-#2802-shape');
   });
 
@@ -233,9 +234,43 @@ describe('#2760 defect 3 — Hooks AoT preservation across install/uninstall/rei
     runCodexInstall(codexHome); // second install
     const content = readCodexConfig(codexHome);
 
-    const hooksJsonCommands = readHooksSessionStartCommands(codexHome);
-    const gsdHandlers = hooksJsonCommands.filter((cmd) => /gsd-check-update/.test(cmd));
+    const gsdHandlers = readHooksJsonManagedCommands(codexHome);
     assert.strictEqual(gsdHandlers.length, 1, 'exactly one managed SessionStart handler after double install');
+  });
+
+  test('GSD_SKIP_UPDATE_CHECK_HOOK strips stale GSD update hook and does not re-register it', () => {
+    const previousSkip = process.env.GSD_SKIP_UPDATE_CHECK_HOOK;
+    process.env.GSD_SKIP_UPDATE_CHECK_HOOK = '1';
+    try {
+      const staleConfig = [
+        '[features]',
+        'codex_hooks = true',
+        '',
+        '# GSD Hooks',
+        '[[hooks.SessionStart]]',
+        '',
+        '[[hooks.SessionStart.hooks]]',
+        'type = "command"',
+        'command = "node /old/path/to/gsd-check-update.js"',
+        '',
+      ].join('\n');
+      writeCodexConfig(codexHome, staleConfig);
+      fs.mkdirSync(path.join(codexHome, 'hooks'), { recursive: true });
+      fs.writeFileSync(path.join(codexHome, 'hooks', 'gsd-check-update.js'), 'stale hook\n');
+      fs.writeFileSync(path.join(codexHome, 'hooks', 'gsd-check-update-worker.js'), 'stale worker\n');
+
+      runCodexInstall(codexHome);
+      const content = readCodexConfig(codexHome);
+      assert.ok(!content.includes('gsd-check-update'), 'update-check hook must not be re-registered');
+      assert.equal(fs.existsSync(path.join(codexHome, 'hooks', 'gsd-check-update.js')), false);
+      assert.equal(fs.existsSync(path.join(codexHome, 'hooks', 'gsd-check-update-worker.js')), false);
+    } finally {
+      if (previousSkip === undefined) {
+        delete process.env.GSD_SKIP_UPDATE_CHECK_HOOK;
+      } else {
+        process.env.GSD_SKIP_UPDATE_CHECK_HOOK = previousSkip;
+      }
+    }
   });
 });
 
@@ -666,12 +701,7 @@ describe('#2760 CR4 finding 2 — Legacy flat [[hooks]] block migrates to namesp
       allSessionStartCommands.includes('echo user hook'),
       'user [[hooks.SessionStart]] entry preserved: ' + JSON.stringify(allSessionStartCommands)
     );
-    const hooksJsonCommands = readHooksSessionStartCommands(codexHome);
-    assert.ok(
-      hooksJsonCommands.some((cmd) => typeof cmd === 'string' && /gsd-check-update/.test(cmd)),
-      'GSD entry must appear in hooks.json SessionStart entries: '
-        + JSON.stringify(hooksJsonCommands)
-    );
+    assert.equal(readHooksJsonManagedCommands(codexHome).length, 1, 'GSD entry must appear once in hooks.json');
 
     // The legacy top-level [[hooks]] AoT must NOT coexist with the namespaced
     // form after migration. parseTomlToObject distinguishes via Array.isArray.
@@ -682,7 +712,7 @@ describe('#2760 CR4 finding 2 — Legacy flat [[hooks]] block migrates to namesp
     );
 
     // No duplicate gsd-check-update entries — exactly one managed entry.
-    const gsdEntries = hooksJsonCommands.filter((cmd) => typeof cmd === 'string' && /gsd-check-update/.test(cmd));
+    const gsdEntries = readHooksJsonManagedCommands(codexHome);
     assert.equal(gsdEntries.length, 1,
       'exactly one gsd-check-update entry after migration, got: ' + gsdEntries.length);
   });
@@ -1061,13 +1091,7 @@ describe('#2760 CR5 finding 3 — migration emits namespaced AoT (no flat/namesp
       'user SessionStart command "y" must be preserved in namespaced array: ' +
         JSON.stringify(ssCommands)
     );
-    // GSD's managed gsd-check-update entry also lives in the namespaced array.
-    const hooksJsonCommands = readHooksSessionStartCommands(codexHome);
-    assert.ok(
-      hooksJsonCommands.some((cmd) => typeof cmd === 'string' && /gsd-check-update/.test(cmd)),
-      'managed gsd-check-update entry must appear in hooks.json SessionStart entries: ' +
-        JSON.stringify(hooksJsonCommands)
-    );
+    assert.equal(readHooksJsonManagedCommands(codexHome).length, 1, 'managed gsd-check-update entry must appear once in hooks.json');
 
     // No flat top-level [[hooks]] AoT may remain.
     assert.ok(

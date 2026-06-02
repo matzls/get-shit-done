@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-21",
+  "generated": "2026-05-18",
   "families": {
     "agents": [
       "gsd-advisor-researcher",
@@ -268,9 +268,7 @@
       "cjs-command-router-adapter.cjs",
       "cjs-sdk-bridge.cjs",
       "clusters.cjs",
-      "code-review-flags.cjs",
       "command-aliases.generated.cjs",
-      "command-routing-hub.cjs",
       "commands.cjs",
       "config-schema.cjs",
       "config.cjs",
@@ -308,7 +306,6 @@
       "profile-output.cjs",
       "profile-pipeline.cjs",
       "project-root.generated.cjs",
-      "prompt-budget.cjs",
       "review-reviewer-selection.cjs",
       "roadmap-command-router.cjs",
       "roadmap.cjs",
