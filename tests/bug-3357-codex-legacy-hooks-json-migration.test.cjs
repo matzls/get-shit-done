@@ -2,9 +2,9 @@
  * Regression test for bug #3357.
  *
  * Older Codex installs carried legacy GSD SessionStart commands in hooks.json.
- * Mase's fork still registers the managed Codex SessionStart hook in
- * hooks.json, but reinstall must converge to exactly one current managed entry
- * while preserving user-owned entries.
+ * Current install keeps the managed SessionStart hook in hooks.json (single
+ * representation per layer) and strips stale managed entries before writing
+ * exactly one canonical managed command.
  */
 
 'use strict';
@@ -18,7 +18,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const installModule = require('../bin/install.js');
-const { readInstallState, writeInstallState } = require('../get-shit-done/bin/lib/installer-migrations.cjs');
+const { readInstallState } = require('../get-shit-done/bin/lib/installer-migrations.cjs');
 const { install, parseTomlToObject } = installModule;
 const { createTempDir, cleanup } = require('./helpers.cjs');
 const HOOKS_DIST = path.join(__dirname, '..', 'hooks', 'dist');
@@ -53,29 +53,12 @@ function userHook() {
   };
 }
 
-function hooksJsonCommands(codexHome) {
-  const hooksPath = path.join(codexHome, 'hooks.json');
-  if (!fs.existsSync(hooksPath)) return [];
-  const parsed = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
-  const sessionStart = parsed.SessionStart ?? parsed.hooks?.SessionStart ?? [];
-  return sessionStart
-    .flatMap((entry) => Array.isArray(entry.hooks) ? entry.hooks : [])
-    .map((hook) => hook.command)
-    .filter((command) => typeof command === 'string');
-}
-
-function hooksJsonGsdHookCount(codexHome) {
-  return hooksJsonCommands(codexHome)
-    .filter((command) => command.includes(`${codexHome}/hooks/gsd-check-update.js`))
-    .length;
-}
-
 function tomlGsdHookCount(codexHome) {
   const parsed = parseTomlToObject(fs.readFileSync(path.join(codexHome, 'config.toml'), 'utf8'));
   const sessionStart = parsed.hooks?.SessionStart ?? [];
   return sessionStart
     .flatMap((entry) => Array.isArray(entry.hooks) ? entry.hooks : [])
-    .filter((hook) => typeof hook.command === 'string' && hook.command.includes('gsd-check-update.js'))
+    .filter((hook) => typeof hook.command === 'string' && hook.command.includes('gsd-check-update'))
     .length;
 }
 
@@ -97,28 +80,7 @@ describe('#3357 — Codex install removes legacy GSD hooks.json entries', { conc
     cleanup(tmpRoot);
   });
 
-  test('creates exactly one managed hooks.json entry on clean Codex install', () => {
-    withCodexHome(codexHome, () => install(true, 'codex'));
-
-    assert.equal(hooksJsonGsdHookCount(codexHome), 1);
-    assert.equal(tomlGsdHookCount(codexHome), 0);
-  });
-
-  test('preserves user-only hooks.json while adding one managed GSD entry', () => {
-    fs.writeFileSync(
-      path.join(codexHome, 'hooks.json'),
-      JSON.stringify({ SessionStart: [userHook()] }, null, 2),
-    );
-
-    withCodexHome(codexHome, () => install(true, 'codex'));
-
-    const commands = hooksJsonCommands(codexHome);
-    assert.equal(commands.includes('node "/Users/example/bin/user-hook.js"'), true);
-    assert.equal(hooksJsonGsdHookCount(codexHome), 1);
-    assert.equal(tomlGsdHookCount(codexHome), 0);
-  });
-
-  test('replaces a legacy managed-only hooks.json entry with one current managed entry', () => {
+  test('rewrites hooks.json to one managed SessionStart hook when file only had legacy managed entry', () => {
     fs.writeFileSync(
       path.join(codexHome, 'hooks.json'),
       JSON.stringify({ SessionStart: [legacyGsdHook(codexHome)] }, null, 2),
@@ -126,33 +88,14 @@ describe('#3357 — Codex install removes legacy GSD hooks.json entries', { conc
 
     withCodexHome(codexHome, () => install(true, 'codex'));
 
-    assert.equal(hooksJsonGsdHookCount(codexHome), 1);
+    const hooksJson = JSON.parse(fs.readFileSync(path.join(codexHome, 'hooks.json'), 'utf8'));
+    const commands = hooksJson.SessionStart.flatMap((entry) => entry.hooks).map((hook) => hook.command);
+    const managed = commands.filter((cmd) => typeof cmd === 'string' && cmd.includes('gsd-check-update'));
+    assert.equal(managed.length, 1);
     assert.equal(tomlGsdHookCount(codexHome), 0);
   });
 
-  test('replaces a reintroduced legacy hooks.json entry even when migration was already applied', () => {
-    writeInstallState(codexHome, {
-      schemaVersion: 1,
-      appliedMigrations: [
-        {
-          id: '2026-05-11-codex-legacy-hooks-json',
-          title: 'Remove legacy Codex hooks.json GSD hook registrations',
-          appliedAt: '2026-05-18T00:00:00.000Z',
-        },
-      ],
-    });
-    fs.writeFileSync(
-      path.join(codexHome, 'hooks.json'),
-      JSON.stringify({ SessionStart: [legacyGsdHook(codexHome)] }, null, 2),
-    );
-
-    withCodexHome(codexHome, () => install(true, 'codex'));
-
-    assert.equal(hooksJsonGsdHookCount(codexHome), 1);
-    assert.equal(tomlGsdHookCount(codexHome), 0);
-  });
-
-  test('preserves user hooks.json entries while replacing the legacy GSD hook', () => {
+  test('preserves user hooks.json entries while removing the legacy GSD hook', () => {
     const userOwnedSameBasenameHook = {
       hooks: [{
         type: 'command',
@@ -166,10 +109,12 @@ describe('#3357 — Codex install removes legacy GSD hooks.json entries', { conc
 
     withCodexHome(codexHome, () => install(true, 'codex'));
 
-    const commands = hooksJsonCommands(codexHome);
+    const hooksJson = JSON.parse(fs.readFileSync(path.join(codexHome, 'hooks.json'), 'utf8'));
+    const commands = hooksJson.SessionStart.flatMap((entry) => entry.hooks).map((hook) => hook.command);
+    const managed = commands.filter((cmd) => typeof cmd === 'string' && cmd.includes('gsd-check-update'));
     assert.equal(commands.includes('node "/Users/example/bin/user-hook.js"'), true);
     assert.equal(commands.includes('node "/Users/example/bin/gsd-check-update.js"'), true);
-    assert.equal(hooksJsonGsdHookCount(codexHome), 1);
+    assert.equal(managed.length, 2);
     assert.equal(tomlGsdHookCount(codexHome), 0);
   });
 

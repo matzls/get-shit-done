@@ -11,6 +11,7 @@
  * Profile model:
  *  - mase-minimal — Mase-owned fork profile for --minimal installs
  *  - core         — upstream main project loop plus code-review checkpoint
+ *                   (includes surface for ADR-0011 expand contract)
  *  - standard     — core + phase management and workspace skills
  *  - full         — all skills (previous default, '*' sentinel)
  * Profiles compose: --profile=core,audit resolves to union(closure(core), closure(audit)).
@@ -77,6 +78,7 @@ const PROFILES = Object.freeze({
     'phase',
     'help',
     'update',
+    'surface',
   ]),
   standard: Object.freeze([
     // Core loop
@@ -87,6 +89,7 @@ const PROFILES = Object.freeze({
     'code-review',
     'help',
     'update',
+    'surface',
     // Phase management (hot nodes from audit — required by 38+ skills)
     'phase',
     'review',

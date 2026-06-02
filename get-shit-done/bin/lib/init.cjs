@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { execGit, platformWriteSync, platformReadSync } = require('./shell-command-projection.cjs');
 const { loadConfig, resolveModelInternal, findPhaseInternal, getRoadmapPhaseInternal, pathExistsInternal, gitWorktreeInfoInternal, generateSlugInternal, getMilestoneInfo, getMilestonePhaseFilter, stripShippedMilestones, extractCurrentMilestone, normalizePhaseName, toPosixPath, output, error, checkAgentsInstalled, phaseTokenMatches } = require('./core.cjs');
-const { planningPaths, planningDir, planningRoot } = require('./planning-workspace.cjs');
+const { planningPaths, planningDir, planningRoot, findContextMdIn } = require('./planning-workspace.cjs');
 const { maskIfSecret } = require('./secrets.cjs');
 const scanPhasePlans = require('./plan-scan.cjs');
 const { stateExtractField } = require('./state-document.cjs');
@@ -410,7 +410,7 @@ function cmdInitPlanPhase(cwd, phase, raw, options = {}) {
     const phaseDirFull = path.join(cwd, phaseInfo.directory);
     try {
       const files = fs.readdirSync(phaseDirFull);
-      const contextFile = files.find(f => f.endsWith('-CONTEXT.md') || f === 'CONTEXT.md');
+      const contextFile = findContextMdIn(phaseDirFull);
       if (contextFile) {
         result.context_path = toPosixPath(path.join(phaseInfo.directory, contextFile));
       }
@@ -888,7 +888,7 @@ function cmdInitPhaseOp(cwd, phase, raw) {
     const phaseDirFull = path.join(cwd, phaseInfo.directory);
     try {
       const files = fs.readdirSync(phaseDirFull);
-      const contextFile = files.find(f => f.endsWith('-CONTEXT.md') || f === 'CONTEXT.md');
+      const contextFile = findContextMdIn(phaseDirFull);
       if (contextFile) {
         result.context_path = toPosixPath(path.join(phaseInfo.directory, contextFile));
       }
@@ -1201,7 +1201,7 @@ function cmdInitManager(cwd, raw) {
         const phaseFiles = fs.readdirSync(fullDir);
         planCount = listPhasePlanFiles(fullDir).length;
         summaryCount = listPhaseSummaryFiles(fullDir).length;
-        hasContext = phaseFiles.some(f => f.endsWith('-CONTEXT.md') || f === 'CONTEXT.md');
+        hasContext = findContextMdIn(fullDir) !== null;
         hasResearch = phaseFiles.some(f => f.endsWith('-RESEARCH.md') || f === 'RESEARCH.md');
 
         if (summaryCount >= planCount && planCount > 0) diskStatus = 'complete';

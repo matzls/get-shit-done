@@ -49,7 +49,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.90",
-    "ws": "^8.20.0"
+    "ws": "8.20.1"
   },
   "devDependencies": {
     "c8": "^11.0.0"
@@ -76,6 +76,7 @@
     "lint:descriptions": "node scripts/lint-descriptions.cjs",
     "lint:skill-deps": "node scripts/lint-skill-deps.cjs",
     "lint:tests": "node scripts/lint-no-source-grep.cjs",
+    "lint:test-file-count": "node scripts/lint-test-file-count.cjs",
     "lint:pr-checks": "node scripts/lint-pr-check-project-dir.cjs",
     "lint:changeset": "node scripts/changeset/lint.cjs",
     "lint:docs": "node scripts/lint-docs-required.cjs",
