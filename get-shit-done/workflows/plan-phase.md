@@ -45,13 +45,25 @@ When `TDD_MODE` is `true`, the planner agent is instructed to apply `type: tdd` 
 
 When `CONTEXT_WINDOW >= 500000`, the planner prompt includes the 3 most recent prior phase CONTEXT.md and SUMMARY.md files PLUS any phases explicitly listed in the current phase's `Depends on:` field in ROADMAP.md. Explicit dependencies always load regardless of recency (e.g., Phase 7 declaring `Depends on: Phase 2` always sees Phase 2's context). Bounded recency keeps the planner's context budget focused on recent work.
 
-Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_enabled`, `plan_checker_enabled`, `nyquist_validation_enabled`, `commit_docs`, `text_mode`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `has_research`, `has_context`, `has_reviews`, `has_plans`, `plan_count`, `phase_status` (#3569), `planning_exists`, `roadmap_exists`, `phase_req_ids`, `response_language`.
+Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_enabled`, `plan_checker_enabled`, `nyquist_validation_enabled`, `commit_docs`, `text_mode`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `has_research`, `has_context`, `has_reviews`, `has_plans`, `plan_count`, `phase_status` (#3569), `planning_exists`, `roadmap_exists`, `phase_req_ids`, `response_language`, `agents_installed`, `missing_agents`, `agent_runtime`, `agents_dir`, `agents_dir_source`.
 
 **If `response_language` is set:** Include `response_language: {value}` in all spawned subagent prompts so any user-facing output stays in the configured language.
 
 **File paths (for <files_to_read> blocks):** `state_path`, `roadmap_path`, `requirements_path`, `context_path`, `research_path`, `verification_path`, `uat_path`, `reviews_path`. These are null if files don't exist.
 
 **If `planning_exists` is false:** Error — run `/gsd:new-project` first.
+
+**Agent preflight:** Use the `agents_installed` and `missing_agents` values from this `init.plan-phase` response as the authoritative agent check. If `agents_installed` is false, stop before spawning any subagents:
+
+```bash
+AGENTS_INSTALLED=$(node -e "const p=JSON.parse(process.argv[1]); process.stdout.write(p.agents_installed === true ? 'true' : 'false')" "$INIT")
+if [ "$AGENTS_INSTALLED" != "true" ]; then
+  node -e "const p=JSON.parse(process.argv[1]); console.error('GSD agent preflight failed.'); console.error('runtime: ' + (p.agent_runtime || 'unknown')); console.error('agents_dir: ' + (p.agents_dir || 'unknown')); console.error('agents_dir_source: ' + (p.agents_dir_source || 'unknown')); console.error('missing_agents: ' + ((p.missing_agents || []).join(', ') || '(unknown)'));" "$INIT"
+  exit 1
+fi
+```
+
+Do not recalculate the required agent set in this workflow. The SDK owns runtime selection and repo-local agent discovery; the workflow only consumes the `init.plan-phase` result.
 
 ## 1.5. Closed-Phase Gate (#3569)
 
@@ -1687,7 +1699,7 @@ re-run `/gsd:plan-phase --gaps` to add plans, or proceed to execute-phase as-is.
 
 Route to `<offer_next>` OR `auto_advance` depending on flags/config.
 
-Before presenting the final status, enforce the plan-brief completion invariant: when the phase has any `*-PLAN.md` files, every one must have a current sibling `*-BRIEF.md`. Re-run the deterministic check, regenerate once if any brief is missing or stale, then stop on any remaining failure instead of presenting `PHASE PLANNED`. In the inline response, include `Created/updated:` markdown links for every PLAN.md and BRIEF.md artifact; use basename labels, absolute targets, angle brackets for paths with spaces, and no backticks around links.
+Before presenting the final status, enforce the plan-brief completion invariant: when the phase has any `*-PLAN.md` files, every one must have a current sibling `*-BRIEF.md`. Re-run the deterministic `plan-brief --check` as a defense-in-depth check only; do not regenerate briefs in this final status step. If the check fails, stop instead of presenting `PHASE PLANNED` and route back through §13d so the single allowed generation/check cycle happens before `state.planned-phase`. In the inline response, include `Created/updated:` markdown links for every PLAN.md and BRIEF.md artifact; use basename labels, absolute targets, angle brackets for paths with spaces, and no backticks around links.
 The terminal TUI renders these markdown file links as clickable, for example `[04-01-BRIEF.md](/absolute/path/to/04-01-BRIEF.md)`.
 
 ## 15. Auto-Advance Check

@@ -74,6 +74,32 @@ describe('plan-phase brief finalization invariant', () => {
     assert.ok(finalStatusGuardIndex > readyStateIndex, 'Step 14 defense-in-depth guard must remain after ready-state write');
   });
 
+  test('workflow stops on init agent preflight before spawning subagents', () => {
+    const content = fs.readFileSync(PLAN_PHASE_PATH, 'utf8');
+    const initIndex = content.indexOf('INIT=$(gsd-sdk query init.plan-phase "$PHASE")');
+    const preflightIndex = content.indexOf('AGENTS_INSTALLED=$(node -e');
+    const researcherSkillsIndex = content.indexOf('AGENT_SKILLS_RESEARCHER=$(gsd-sdk query agent-skills gsd-phase-researcher)');
+    const spawnIndex = content.indexOf('subagent_type="gsd-phase-researcher"');
+
+    assert.notEqual(initIndex, -1, 'workflow must initialize through init.plan-phase');
+    assert.notEqual(preflightIndex, -1, 'workflow must parse agents_installed from init output');
+    assert.notEqual(researcherSkillsIndex, -1, 'workflow must still load researcher skills');
+    assert.notEqual(spawnIndex, -1, 'workflow must still spawn researcher later');
+    assert.ok(initIndex < preflightIndex, 'agent preflight must use init output');
+    assert.ok(preflightIndex < spawnIndex, 'agent preflight must run before any researcher spawn');
+    assert.match(content, /Do not recalculate the required agent set/);
+  });
+
+  test('final status guard is check-only after state is written', () => {
+    const content = fs.readFileSync(PLAN_PHASE_PATH, 'utf8');
+    const finalStatusGuardIndex = content.indexOf('Before presenting the final status, enforce the plan-brief completion invariant');
+    const finalStatusText = content.slice(finalStatusGuardIndex, content.indexOf('## 15. Auto-Advance Check'));
+
+    assert.notEqual(finalStatusGuardIndex, -1, 'workflow must keep final status guard');
+    assert.match(finalStatusText, /do not regenerate briefs in this final status step/);
+    assert.match(finalStatusText, /route back through §13d/);
+  });
+
   test('workflow fails closed when no executable plans exist', () => {
     const content = fs.readFileSync(PLAN_PHASE_PATH, 'utf8');
     const noPlansIndex = content.indexOf('No executable PLAN.md files found in ${PHASE_DIR}');
