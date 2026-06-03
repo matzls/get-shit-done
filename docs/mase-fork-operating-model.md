@@ -79,18 +79,17 @@ checklist is the canonical operator procedure for single-repo fork installs,
 including target git state, Codex hook ownership, install mode, and post-install
 verification.
 
-Phase 1 note: the fork install scripts are restored in the
-installer/provenance phase of the Open GSD reconciliation. Until that phase is
-complete, treat the commands below as the intended fork interface, not as
-available Phase 1 commands.
-
 For Mase-managed installs, update and validate this repository first, then
-install from the checked-out fork branch:
+install from the durable local customization branch:
 
 ```bash
 git checkout mase/local-fixes
 scripts/mase-install-fork.sh --runtime codex --local --target /path/to/project
 ```
+
+The installer refuses branches other than `mase/local-fixes` by default. Use
+`GSD_ALLOW_REVIEW_BRANCH_INSTALL=1` only for an intentional smoke install from a
+review branch, never for durable propagation.
 
 Use `--global` instead of `--local --target ...` for a global runtime install:
 
@@ -120,15 +119,14 @@ The fork overlay keeps a `/gsd-update` preflight in `commands/gsd/update.md`.
 If the marker says `source: "mase-fork"`, the standard npm-backed update path
 must stop unless an explicit override is set.
 
-To audit installs after the fork inventory script is restored:
+To audit installs:
 
 ```bash
 scripts/mase-gsd-install-inventory.sh
 scripts/mase-gsd-install-inventory.sh --json
 ```
 
-To propagate the current fork to stale local installs after the propagation
-script is restored, dry-run first:
+To propagate the current fork to stale local installs, dry-run first:
 
 ```bash
 scripts/mase-gsd-propagate.sh --dry-run
@@ -136,7 +134,8 @@ scripts/mase-gsd-propagate.sh --apply
 ```
 
 Propagation skips global installs, dirty target repos, and unknown-source GSD
-installs by default. Apply propagation only when Mase explicitly asks.
+installs by default. Apply propagation only when Mase explicitly asks and only
+after the reconciled work has been adopted into `mase/local-fixes`.
 
 ## Mase Small Install Surface
 

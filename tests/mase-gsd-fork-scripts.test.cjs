@@ -253,12 +253,18 @@ describe('Mase GSD fork propagation', () => {
   });
 
   test('wrapper treats upstream-main as a protected mirror branch', () => {
-    const script = fs.readFileSync(installScript, 'utf8');
+    const installScriptText = fs.readFileSync(installScript, 'utf8');
+    const propagateScriptText = fs.readFileSync(propagateScript, 'utf8');
 
-    assert.match(script, /\$branch" = "main"/);
-    assert.match(script, /\$branch" = "upstream-main"/);
-    assert.match(script, /GSD_ALLOW_MIRROR_INSTALL/);
-    assert.match(script, /clean upstream mirror/);
+    assert.match(installScriptText, /\$branch" = "main"/);
+    assert.match(installScriptText, /\$branch" = "upstream-main"/);
+    assert.match(installScriptText, /\$branch" != "mase\/local-fixes"/);
+    assert.match(installScriptText, /GSD_ALLOW_REVIEW_BRANCH_INSTALL/);
+    assert.match(installScriptText, /clean upstream mirror/);
+    assert.match(installScriptText, /fork installs must come from mase\/local-fixes/);
+    assert.match(installScriptText, /Adopt the reconciliation into mase\/local-fixes first/);
+    assert.match(propagateScriptText, /\$mode" = "apply"/);
+    assert.match(propagateScriptText, /apply propagation must come from mase\/local-fixes/);
   });
 
   test('dry-run works with default roots', () => {

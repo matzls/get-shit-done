@@ -504,6 +504,17 @@ describe('install-minimal-backcompat: --minimal and --profile=core remain distin
   });
 });
 
+describe('install: Codex mase-minimal rollback coverage', () => {
+  test('mase-minimal keeps Codex pre-config rollback enabled', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'bin', 'install.js'), 'utf8');
+
+    assert.match(
+      source,
+      /const _codexPreConfigRollback = !isCodex \|\| \(isMinimalMode\(_effectiveInstallMode\) && !_isMaseMinimalProfile\) \? null : \(\) => \{/,
+    );
+  });
+});
+
 describe('install: Codex full → minimal downgrade cleans stale agent state', () => {
   test('--minimal replaces stale GSD agents and preserves managed [agents.gsd-*] config', () => {
     const targetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-codex-downgrade-'));

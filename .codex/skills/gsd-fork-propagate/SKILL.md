@@ -18,7 +18,7 @@ Update Mase-managed GSD installs from the local fork checkout:
 ```
 
 This skill is for fork-managed installs only. Do not use `/gsd-update`,
-`npx get-shit-done-cc@latest`, or public npm update flows unless Mase
+`npx @opengsd/gsd-core@latest`, or public npm update flows unless Mase
 explicitly asks to replace the fork-managed install with upstream.
 
 ## Required Context
@@ -31,6 +31,10 @@ Before running update commands:
    `mase/local-fixes`.
 3. Check the fork working tree. If dirty, stop and report the dirty files unless
    Mase explicitly asks to continue.
+
+The fork installer and apply propagation intentionally refuse branches other
+than `mase/local-fixes` unless `GSD_ALLOW_REVIEW_BRANCH_INSTALL=1` is set for an
+explicit smoke install. Do not use that override for durable propagation.
 
 ## Inventory
 
@@ -81,6 +85,10 @@ Only after Mase confirms the dry-run, apply:
 scripts/mase-gsd-propagate.sh --apply
 ```
 
+Apply mode is valid only after the reconciled branch has been adopted into
+`mase/local-fixes`. If the current checkout is still a review branch, stop after
+the dry-run and report that adoption is the next gate.
+
 ## Single Target Update
 
 For one specific repo, use the fork installer directly:
@@ -104,6 +112,8 @@ marker says the target was minimal.
 - Do not update unknown-source installs unless Mase explicitly confirms.
 - Do not fetch, rebase, push, or force-push the fork unless Mase explicitly asks
   to update the fork itself.
+- Do not apply propagation from review or reconciliation branches. Adopt into
+  `mase/local-fixes` first.
 - If a command fails, report the command, exit status, and key output. Do not
   fall back to upstream npm.
 

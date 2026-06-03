@@ -83,6 +83,13 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+branch="$(git -C "$repo_root" branch --show-current)"
+if [ "$mode" = "apply" ] && [ "$branch" != "mase/local-fixes" ] && [ "${GSD_ALLOW_REVIEW_BRANCH_INSTALL:-}" != "1" ]; then
+  echo "Refusing to propagate from $branch; apply propagation must come from mase/local-fixes." >&2
+  echo "Adopt the reconciliation into mase/local-fixes first, or set GSD_ALLOW_REVIEW_BRANCH_INSTALL=1 for an intentional smoke propagation." >&2
+  exit 1
+fi
+
 inventory_args=(--runtime "$runtime_filter" --json)
 if [ "${#roots[@]}" -gt 0 ]; then
   for root in "${roots[@]}"; do
