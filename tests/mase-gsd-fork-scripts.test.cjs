@@ -237,6 +237,20 @@ describe('Mase GSD fork propagation', () => {
     assert.doesNotMatch(output, /--minimal/);
   });
 
+  test('dry-run maps legacy minimal markers back to --minimal', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mase-gsd-propagate-legacy-minimal-'));
+    writeInstall(tmp, 'legacy-minimal-repo', {
+      commit: '0000000000000000000000000000000000000000',
+      mode: 'minimal',
+      profile: 'legacy-minimal',
+    });
+
+    const output = run(propagateScript, ['--root', tmp, '--runtime', 'codex', '--dry-run']);
+
+    assert.match(output, /--minimal/);
+    assert.doesNotMatch(output, /--profile=legacy-minimal/);
+  });
+
   test('wrapper records explicit named profiles in marker writer', () => {
     const script = fs.readFileSync(installScript, 'utf8');
 

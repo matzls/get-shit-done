@@ -118,7 +118,7 @@ function commandFor(row) {
     args.push('--local', '--target', row.target_path);
   }
   if (row.profile && row.profile !== 'full') {
-    if (row.profile === 'mase-minimal') {
+    if (row.profile === 'mase-minimal' || row.profile === 'legacy-minimal') {
       args.push('--minimal');
     } else {
       args.push(`--profile=${row.profile}`);
