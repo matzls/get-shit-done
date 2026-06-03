@@ -1,0 +1,199 @@
+{
+  "schema_version": "peer-review-v1",
+  "review_id": "peer-review-451d3d774fb4",
+  "plan_path": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/open-gsd-reconciliation-research-2026-06-03.md",
+  "plan_sha256": "3a71c96e15412d60b4f81e40402d800e2fc563a859cde122bfc0b5cceaf63d22",
+  "mode": "advisory-challenge",
+  "sidecar_dir": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_advisory-reviews",
+  "engine": "Claude",
+  "requested_engine": "auto",
+  "origin_runtime": "codex",
+  "engine_policy": "auto",
+  "resolved_primary_engine": "claude",
+  "preferred_engine": "claude",
+  "fallback_engine": "codex",
+  "final_engine": "claude",
+  "reviewer_match": "opposite",
+  "gate_quality": "preferred",
+  "artifact_role": "canonical",
+  "canonical_sidecar_path": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_advisory-reviews/open-gsd-reconciliation-research-2026-06-03-peer-review.json",
+  "fallback_used": false,
+  "fallback_reason": null,
+  "attempt_chain": [
+    {
+      "engine": "claude",
+      "phase": "primary",
+      "attempt": 1,
+      "timeout_seconds": 300,
+      "result": "completed",
+      "elapsed_seconds": 187.713,
+      "returncode": 0
+    }
+  ],
+  "attempt_failures": [],
+  "primary_failure": null,
+  "fallback_failure": null,
+  "model": "claude-opus-4-6",
+  "verdict": null,
+  "stance": "supportive",
+  "issues_count": 3,
+  "ran_at": "2026-06-03T08:18:08.373321+00:00",
+  "raw_review_excerpt": "The research document is well-structured, the upstream-first overlay strategy is sound, and the prior peer-review concerns have been substantively addressed. For the narrow question \u2014 is Phase 1 ready to proceed? \u2014 the answer is yes. Phase 1 is a doc-only, fully reversible branch creation from upstream-main that carries no installer, identity, or history-rewrite risk. The hardened Phase 1 validation block now includes AGENTS.md composition, doc path verification, marker schema check, remote topology, and rollback tag availability \u2014 all of which were missing in the prior round. The remaining open decisions (minimal profile, Codex hooks, marker migration) are correctly scoped to Phases 2\u20135 and do not gate Phase 1.\n\nIssues:\n- 1. [NOTE] Phase 1 deliverable list contains two micro-decisions in 'or' form\n- 2. [NOTE] Mase review notes vs decision-section status labels are not reconciled\n- 3. [WARN] Phase 2 marker migration for existing installs is named but not yet designed",
+  "error": null,
+  "closure_verification": "",
+  "prior_round_closure": [],
+  "rerun_recommendation": null,
+  "review": {
+    "mode": "advisory-challenge",
+    "summary": "The research document is well-structured, the upstream-first overlay strategy is sound, and the prior peer-review concerns have been substantively addressed. For the narrow question \u2014 is Phase 1 ready to proceed? \u2014 the answer is yes. Phase 1 is a doc-only, fully reversible branch creation from upstream-main that carries no installer, identity, or history-rewrite risk. The hardened Phase 1 validation block now includes AGENTS.md composition, doc path verification, marker schema check, remote topology, and rollback tag availability \u2014 all of which were missing in the prior round. The remaining open decisions (minimal profile, Codex hooks, marker migration) are correctly scoped to Phases 2\u20135 and do not gate Phase 1.",
+    "rubric_cards": [
+      {
+        "title": "Claim anchoring",
+        "anchor": "Verified State table, Peer Review Checkpoint follow-up table, Phase 1 validation block, .codex/oss-fork-manager.json, AGENTS.md, mase-fork-operating-model.md",
+        "claim": "Load-bearing claims about rollback tag, named refs, upstream profile composition, marker schema, and fork topology are now grounded in verified repo state or explicit follow-up evidence.",
+        "evidence": "Rollback tag verified at ba25aa10 (follow-up table). Named refs confirmed locally (follow-up table). Profile composition verified against upstream install-profiles.cjs (follow-up and Decision 1 section). oss-fork-manager.json inspected: schema_version 1, matching branch/remote config. AGENTS.md confirms fork remote model. Upstream AGENTS.md composition flagged as open validation item and included in Phase 1 validation block.",
+        "disposition": "All prior-round unverified claims now resolved or explicitly scoped as Phase 1 validation tasks. No remaining unanchored load-bearing claims for Phase 1 scope."
+      },
+      {
+        "title": "Disposition matrix",
+        "anchor": "Full document including decisions, phases, delta table, peer review checkpoint, and Mase review notes",
+        "claim": "The document covers artifact evidence thoroughly, integrates Mase's conversation directions, and spans the full reconciliation campaign while correctly gating later-phase decisions.",
+        "evidence": "Delta table covers 14 custom functionality areas with per-item recommendation and validation. 7 decisions with options/pros/risks. 6 implementation phases with validation commands. Mase review notes embedded as directional decisions. Prior peer review checkpoint with 6-row follow-up verification table. Open questions section names 5 remaining items, all scoped to Phase 2+.",
+        "disposition": "Artifact evidence is comprehensive. Conversation evidence is integrated with minor tension between 'decision needed' labels and Mase's provisional directions. Campaign is fully scoped with appropriate phase gating."
+      },
+      {
+        "title": "Coverage scope",
+        "anchor": "Full artifact reviewed; 5 repo files inspected; prior peer review sidecar cross-referenced",
+        "claim": "Review covered the complete research artifact, the prior peer review sidecar, and cross-referenced against AGENTS.md, mase-fork-operating-model.md, oss-fork-manager.json, mase-install-fork.sh, and the peer review JSON.",
+        "evidence": "All major sections inspected: Verified State, High-Level Finding, Workflow Continuity, 7 Decisions, Delta Table, Patch Classification, Overlay Set, 6 Phases, Peer Review Checkpoint, Open Questions. Prior round's 6 issues mapped to current follow-up table. Phase 1 validation block compared against prior round's recommendations.",
+        "disposition": "Full artifact and prior-round closure reviewed. Phase 1 readiness assessed directly; Phases 2\u20136 assessed for gating correctness only."
+      }
+    ],
+    "disposition_matrix": {
+      "rows": [
+        "artifact",
+        "conversation",
+        "campaign"
+      ],
+      "columns": [
+        "present",
+        "partial",
+        "missing"
+      ],
+      "cells": [
+        [
+          "delta table, patch classification, 7 decisions with options, 6 phases with validation, peer review follow-up table",
+          "upstream AGENTS.md composition (scoped as Phase 1 task), two micro-decisions in Phase 1 deliverable list use 'or' form",
+          "nothing missing that blocks Phase 1"
+        ],
+        [
+          "Mase review notes embedded as directional table, updated directions inline in decisions 2/6/7",
+          "tension between 'decision needed' labels and Mase's provisional answers for minimal profile and Codex hooks",
+          "final binding status of Mase's provisional directions not explicitly declared"
+        ],
+        [
+          "full fork reconciliation scoped, upstream-first strategy grounded, phases correctly gated",
+          "deferred decisions lack explicit resolution criteria or deadlines",
+          "no contingency for upstream breaking changes during implementation (acceptable for Phase 1 scope)"
+        ]
+      ]
+    },
+    "conversation_evidence": {
+      "used": true,
+      "sources": [
+        "Mase review notes table embedded in artifact (provisional directions per area)",
+        "Inline 'Updated direction from Mase review' annotations in Decisions 2, 6, and 7",
+        "Peer Review Checkpoint section referencing prior advisory review"
+      ],
+      "summary": "Mase's provisional directions are integrated into the artifact as a review-notes table and inline decision updates. SDK drop, plan-brief retirement, hooks.json migration to upstream, and branch adoption preference are marked as directional decisions. Minimal profile, Codex update hook, and repo-local agent guardrails remain explicitly open. The document treats these directions as planning inputs, not binding approvals, which is appropriate for research-stage gating.",
+      "gaps": [
+        "No explicit statement that Mase's provisional directions are binding vs. exploratory \u2014 the document treats them as directional but never formally closes the distinction",
+        "Minimal profile comparison is now detailed (Decision 1) but the decision itself remains open despite having enough data to close it"
+      ]
+    },
+    "campaign_coverage": {
+      "scope": "full",
+      "covered": [
+        "Fork remote/branch guardrails",
+        "Package identity migration",
+        "SDK retirement",
+        "Install wrapper and provenance",
+        "Propagation and inventory scripts",
+        "Update preflight protection",
+        "Codex hook behavior (hooks.json vs config.toml)",
+        "Codex update-check suppression",
+        "Minimal profile comparison with concrete upstream data",
+        "plan-brief retirement with recovery approach",
+        "Graphify hook context with opt-in gate analysis",
+        "Branch adoption model",
+        "All 6 implementation phases with validation commands",
+        "Prior peer review follow-up with 6-row verification table"
+      ],
+      "missing": [],
+      "gaps": [
+        "No contingency plan for upstream breaking changes during multi-phase implementation (acceptable for Phase 1 scope since Phase 1 is doc-only and reversible)",
+        "Phase 2 marker migration for existing installs is named but not yet designed in detail (correctly deferred)",
+        "Resolution criteria and timelines for open decisions (minimal profile, Codex hooks) are not stated"
+      ]
+    },
+    "issues": [
+      {
+        "title": "Phase 1 deliverable list contains two micro-decisions in 'or' form",
+        "details": "Phase 1 says to re-add 'OSS fork marker or updated equivalent' and 'fork propagation skill or a pointer to my-oss-fork-manager'. The 'or' means the implementer must make two small decisions during Phase 1 without pre-agreed defaults. Both are low-risk, but undecided items in a phase spec create unnecessary ambiguity during execution.",
+        "suggested_fix": "Resolve both before starting Phase 1: (1) keep .codex/oss-fork-manager.json as-is since the global manager still expects schema_version 1, and (2) add a docs pointer to my-oss-fork-manager rather than porting the full repo-local propagation skill, since Phase 2 will bring the scripts anyway.",
+        "severity": "NOTE"
+      },
+      {
+        "title": "Mase review notes vs decision-section status labels are not reconciled",
+        "details": "The review-notes table says plan-brief is 'Drop' and hooks.json is 'Move to upstream', but the corresponding decision sections still carry 'Decision needed' headers for adjacent items (minimal profile, Codex update hook). The doc never explicitly declares which provisional directions are now binding vs. still exploratory. This is cosmetic for Phase 1 but will create confusion when Phases 3\u20135 start.",
+        "suggested_fix": "Add a one-line status annotation to each decision section header: 'Decided: [direction]' or 'Open: awaiting [specific input]'. This can be done during Phase 1 doc cleanup or as a pre-Phase-3 gate.",
+        "severity": "NOTE"
+      },
+      {
+        "title": "Phase 2 marker migration for existing installs is named but not yet designed",
+        "details": "The peer review follow-up table marks existing fork-managed installs as an 'Open migration item' and the document says Phase 2 'must explicitly handle marker/identity migration for existing installs.' However, the Phase 2 section only adds 'support old marker identity fields during transition' without specifying the migration behavior (rewrite markers in place? dual-read? migration script?). This is correctly deferred from Phase 1 but needs design before Phase 2 starts.",
+        "suggested_fix": "Before starting Phase 2, define the concrete migration behavior: whether inventory/propagation will dual-read old and new marker schemas, whether markers are rewritten during propagation apply, and what happens to the two known stale installs (global Codex, my-second-brain-build).",
+        "severity": "WARN"
+      }
+    ],
+    "verification_gaps": [
+      "Upstream AGENTS.md composition check is scoped as a Phase 1 validation task but has not yet been performed \u2014 it must be done during Phase 1 execution, not after",
+      "The two known stale fork-managed installs have been inventoried but their exact marker schema has not been inspected to confirm Phase 2 migration requirements",
+      "Resolution criteria for the three remaining open decisions (minimal profile, Codex update hook, repo-local agent guardrails) are not defined"
+    ],
+    "recommended_fixes": [
+      "Resolve the two 'or' micro-decisions in Phase 1 deliverable list before starting implementation",
+      "Add status annotations to decision section headers to distinguish decided from open items",
+      "Design the concrete marker migration behavior before starting Phase 2, covering both known stale installs"
+    ],
+    "evidence_sources": [
+      "Artifact: docs/plans/open-gsd-reconciliation-research-2026-06-03.md (full document)",
+      "Repo: AGENTS.md (lines 1-80) \u2014 confirmed fork remote model, branch model, sync policy",
+      "Repo: docs/mase-fork-operating-model.md (lines 1-60) \u2014 confirmed remote model, branch model, upstream intake procedure",
+      "Repo: .codex/oss-fork-manager.json (full file) \u2014 confirmed managed fork marker, schema_version 1, branch/remote config",
+      "Repo: scripts/mase-install-fork.sh (lines 1-40) \u2014 confirmed wrapper mechanics and branch protection",
+      "Prior review: docs/plans/_advisory-reviews/open-gsd-reconciliation-research-2026-06-03-peer-review.json \u2014 confirmed 6 issues, mixed stance, all 6 mapped to current follow-up table"
+    ],
+    "error": null,
+    "stance": "supportive",
+    "best_case": "Phase 1 is narrow, reversible, and doc-only: create a branch from upstream-main and re-add Mase guardrail docs, fork marker, and AGENTS.md overlay. The hardened validation block now includes 5 concrete checks beyond git diff --check (AGENTS.md composition, doc path validity, marker schema, remote topology, rollback tag). All prior peer-review concerns are either resolved in the current artifact or correctly deferred to later phases. The open decisions (minimal profile, Codex hooks, marker migration) are appropriately gated to Phases 2\u20135 and do not block the doc-only foundation phase. If Phase 1 lands cleanly, it establishes the upstream-first baseline that all subsequent phases build on, with the rollback tag verified as a recovery anchor.",
+    "strongest_objections": [
+      "The strongest remaining concern is that Phase 2 marker migration is named but not designed. The document correctly says 'Phase 2 must explicitly handle marker/identity migration for existing installs' and names two known stale installs, but the Phase 2 section only says 'support old marker identity fields during transition' without specifying the mechanism. This is not a Phase 1 blocker but could stall Phase 2 if not addressed before it starts.",
+      "The upstream AGENTS.md composition check is scoped as a Phase 1 validation task, meaning it will be discovered during execution rather than pre-resolved. The follow-up table notes upstream AGENTS.md 'still describes SDK-era structure in places, so fork overlay must compose carefully.' If the composition turns out to be complex, it could expand Phase 1 scope beyond what was planned.",
+      "Three open decisions (minimal profile, Codex update hook, repo-local agents) have no stated resolution criteria or deadlines. This doesn't block Phase 1, but it means Phases 3\u20134 could stall waiting for Mase input if the decisions aren't teed up in advance."
+    ],
+    "hidden_assumptions": [
+      "Phase 1 assumes the upstream AGENTS.md composition will be straightforward enough to handle within the doc-only phase scope \u2014 the follow-up table flags SDK-era drift but doesn't estimate composition complexity",
+      "The document assumes Mase's provisional directions are stable enough to build Phase 1 on, though they are explicitly labeled as directional rather than binding",
+      "Phase 1 assumes the oss-fork-manager.json marker can be carried forward as-is, based on current schema_version 1 match \u2014 if the global manager evolves before Phase 2, this may need revisiting",
+      "The phased approach assumes upstream won't push breaking changes that invalidate the overlay during implementation \u2014 acceptable for Phase 1 since it's fast and doc-only, but a real risk for the multi-week Phases 2\u20136 campaign"
+    ],
+    "what_would_change_my_mind": "I would downgrade to mixed if Phase 1 itself had an unresolved dependency \u2014 for example, if the upstream AGENTS.md composition turned out to require installer or code changes rather than just doc composition, or if the oss-fork-manager marker schema had changed since the follow-up verification. Neither of these is indicated by current evidence. I would also downgrade if someone showed that one of the Phase 1 deliverables depends on an open decision (minimal profile, hooks, etc.) \u2014 but inspection confirms Phase 1 only touches docs, guardrails, and the existing marker, none of which depend on those decisions.",
+    "next_checks": [
+      "During Phase 1 execution: compose the fork AGENTS.md overlay against upstream's current AGENTS.md and verify they're coherent (this is the one remaining validation task that hasn't been pre-resolved)",
+      "During Phase 1 execution: verify all doc references (script paths, branch names, remote URLs) point to paths that exist on the upstream-main tree",
+      "Before Phase 2: inspect the exact marker schemas of the two known stale installs to determine migration requirements",
+      "Before Phase 3: tee up the minimal profile decision with a concrete recommendation so Phase 3 doesn't stall on input"
+    ]
+  }
+}

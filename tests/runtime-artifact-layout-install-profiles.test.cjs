@@ -307,7 +307,8 @@ describe('PROFILES map', () => {
     assert.ok(Object.isFrozen(PROFILES));
   });
 
-  test('PROFILES has core, standard, full keys', () => {
+  test('PROFILES has mase-minimal, core, standard, full keys', () => {
+    assert.ok('mase-minimal' in PROFILES, 'PROFILES.mase-minimal missing');
     assert.ok('core' in PROFILES, 'PROFILES.core missing');
     assert.ok('standard' in PROFILES, 'PROFILES.standard missing');
     assert.ok('full' in PROFILES, 'PROFILES.full missing');
@@ -329,6 +330,22 @@ describe('PROFILES map', () => {
     ]);
   });
 
+  test('PROFILES.mase-minimal contains Mase small-install direct skills', () => {
+    const maseMinimal = PROFILES['mase-minimal'];
+    assert.ok(Array.isArray(maseMinimal), 'mase-minimal should be an array');
+    assert.deepStrictEqual([...maseMinimal].sort(), [
+      'code-review',
+      'discuss-phase',
+      'execute-phase',
+      'fast',
+      'help',
+      'new-project',
+      'plan-phase',
+      'quick',
+      'update',
+    ]);
+  });
+
   test('PROFILES.full is the sentinel "*"', () => {
     assert.strictEqual(PROFILES.full, '*');
   });
@@ -340,6 +357,15 @@ describe('PROFILES map', () => {
     for (const s of core) {
       assert.ok(standard.includes(s), `standard should include core skill: ${s}`);
     }
+  });
+
+  test('PROFILES.mase-minimal intentionally differs from upstream core', () => {
+    const maseMinimal = new Set(PROFILES['mase-minimal']);
+    assert.ok(maseMinimal.has('fast'));
+    assert.ok(maseMinimal.has('quick'));
+    assert.ok(maseMinimal.has('code-review'));
+    assert.ok(!maseMinimal.has('surface'));
+    assert.ok(!maseMinimal.has('phase'));
   });
 
   test('PROFILES.standard has at least 10 skills', () => {
@@ -366,6 +392,19 @@ describe('resolveProfile', () => {
       assert.ok(result.skills.has(s), `core closure should include ${s}`);
     }
     assert.ok(result.skills.has('phase'), 'core closure must include phase');
+  });
+
+  test('resolves mase-minimal profile — includes dependency closure and curated agents', () => {
+    const manifest = loadSkillsManifest(REAL_COMMANDS_DIR);
+    const result = resolveProfile({ modes: ['mase-minimal'], manifest });
+    assert.strictEqual(result.name, 'mase-minimal');
+    assert.ok(result.skills instanceof Set, 'skills should be a Set');
+    for (const s of PROFILES['mase-minimal']) {
+      assert.ok(result.skills.has(s), `mase-minimal closure should include ${s}`);
+    }
+    assert.ok(result.skills.has('phase'), 'mase-minimal closure should include upstream dependencies');
+    assert.ok(result.agents.has('gsd-planner'), 'mase-minimal should include gsd-planner');
+    assert.ok(result.agents.has('gsd-verifier'), 'mase-minimal should include gsd-verifier');
   });
 
   test('resolves standard profile — superset of core', () => {

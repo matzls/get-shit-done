@@ -9,11 +9,12 @@
  * dropped skills when users stack multiple plugins (#3408).
  *
  * Profile model: three named profiles replace the old minimal/full binary:
- *  - core     — eight skills covering the main project loop (includes surface for ADR-0011 expand contract)
+ *  - core     — eight upstream skills covering the main project loop (includes surface for ADR-0011 expand contract)
+ *  - mase-minimal — Mase fork small install: daily loop + fast/quick/code-review + curated agents
  *  - standard — core + phase management and workspace skills
  *  - full     — all skills (previous default, '*' sentinel)
  * Profiles compose: --profile=core,audit resolves to union(closure(core), closure(audit)).
- * Back-compat aliases: --minimal / --core-only both map to --profile=core.
+ * Mase fork aliases: --minimal / --core-only both map to --profile=mase-minimal.
  *
  * This module owns:
  *  - PROFILES map: named profile → base skill set (or '*' sentinel for full)
@@ -30,7 +31,7 @@
  * without reinstall, persisting state in <runtimeConfigDir>/.gsd-surface.json.
  *
  * Legacy back-compat exports (deprecated, kept for existing callers):
- *  - MINIMAL_SKILL_ALLOWLIST — derived from PROFILES.core
+ *  - MINIMAL_SKILL_ALLOWLIST — derived from PROFILES['mase-minimal'] in Mase's fork
  *  - isMinimalMode(mode) — returns true for 'minimal'
  *  - shouldInstallSkill(name, mode|resolvedProfile) — overloaded
  *  - stageSkillsForMode(srcDir, mode) — wraps stageSkillsForProfile
@@ -66,6 +67,17 @@ const PROFILES = Object.freeze({
     'update',
     'surface',
   ]),
+  'mase-minimal': Object.freeze([
+    'code-review',
+    'discuss-phase',
+    'execute-phase',
+    'fast',
+    'help',
+    'new-project',
+    'plan-phase',
+    'quick',
+    'update',
+  ]),
   standard: Object.freeze([
     // Core loop
     'new-project',
@@ -87,6 +99,22 @@ const PROFILES = Object.freeze({
   ]),
   full: '*',
 });
+
+const MASE_MINIMAL_AGENT_ALLOWLIST = Object.freeze([
+  'gsd-advisor-researcher',
+  'gsd-assumptions-analyzer',
+  'gsd-code-reviewer',
+  'gsd-codebase-mapper',
+  'gsd-executor',
+  'gsd-pattern-mapper',
+  'gsd-phase-researcher',
+  'gsd-plan-checker',
+  'gsd-planner',
+  'gsd-project-researcher',
+  'gsd-research-synthesizer',
+  'gsd-roadmapper',
+  'gsd-verifier',
+]);
 
 // ---------------------------------------------------------------------------
 // Manifest parsing
@@ -248,6 +276,11 @@ function resolveProfile({ modes, manifest, _profilesOverride } = {}) {
   for (const skillStem of unionSkills) {
     const agentRefs = man.get(`_calls_agents_${skillStem}`) || [];
     for (const agentStem of agentRefs) {
+      unionAgents.add(agentStem);
+    }
+  }
+  if (validModes.includes('mase-minimal')) {
+    for (const agentStem of MASE_MINIMAL_AGENT_ALLOWLIST) {
       unionAgents.add(agentStem);
     }
   }
@@ -445,13 +478,13 @@ function writeActiveProfile(runtimeConfigDir, profileName) {
  * Rank ordering for profiles (lower index = more restrictive / smaller skill set).
  * Unknown profiles default to the permissive end (treated as 'full').
  */
-const PROFILE_RANK = Object.freeze(['core', 'standard', 'full']);
+const PROFILE_RANK = Object.freeze(['core', 'mase-minimal', 'standard', 'full']);
 
 /**
  * Given an array of profile names (one per runtime), return the most-restrictive
  * profile — i.e. the one with the smallest effective skill set.
  *
- * Ordering (most to least restrictive): core < standard < full.
+ * Ordering (most to least restrictive): core < mase-minimal < standard < full.
  * Composed profiles (e.g. 'core,audit') and unknown profiles are treated as
  * 'full' for this comparison.
  *
@@ -507,10 +540,10 @@ function resolveEffectiveProfile({ requestedProfileName, targetDir }) {
 // ---------------------------------------------------------------------------
 
 /**
- * @deprecated Use PROFILES.core instead.
+ * @deprecated Use PROFILES['mase-minimal'] instead.
  * Preserved for callers in install.js and existing tests.
  */
-const MINIMAL_SKILL_ALLOWLIST = Object.freeze([...PROFILES.core]);
+const MINIMAL_SKILL_ALLOWLIST = Object.freeze([...PROFILES['mase-minimal']]);
 
 const MINIMAL_ALLOWLIST_SET = new Set(MINIMAL_SKILL_ALLOWLIST);
 
@@ -542,7 +575,7 @@ function shouldInstallSkill(skillBaseName, resolvedProfileOrMode) {
 
 /**
  * Stage a filtered copy of the source commands/gsd directory.
- * Back-compat wrapper: maps 'minimal' → core profile, 'full' → full.
+ * Back-compat wrapper: maps 'minimal' → Mase minimal skill allowlist, 'full' → full.
  *
  * @deprecated Use stageSkillsForProfile with a resolved profile instead.
  * @param {string} srcDir absolute path to commands/gsd
@@ -582,6 +615,7 @@ function stageSkillsForMode(srcDir, mode) {
 module.exports = {
   // New profile API (ADR-0011)
   PROFILES,
+  MASE_MINIMAL_AGENT_ALLOWLIST,
   PROFILE_RANK,
   loadSkillsManifest,
   resolveProfile,

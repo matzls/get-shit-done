@@ -102,6 +102,16 @@ describe('mostRestrictiveProfile', () => {
     assert.strictEqual(result, 'core');
   });
 
+  test('returns "core" over "mase-minimal" (core has no curated agent surface)', () => {
+    const result = mostRestrictiveProfile(['mase-minimal', 'core']);
+    assert.strictEqual(result, 'core');
+  });
+
+  test('returns "mase-minimal" over "standard"', () => {
+    const result = mostRestrictiveProfile(['standard', 'mase-minimal']);
+    assert.strictEqual(result, 'mase-minimal');
+  });
+
   test('returns "core" over "full"', () => {
     const result = mostRestrictiveProfile(['full', 'core']);
     assert.strictEqual(result, 'core');

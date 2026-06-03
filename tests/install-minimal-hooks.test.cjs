@@ -39,6 +39,7 @@ const {
 
 const {
   MINIMAL_SKILL_ALLOWLIST,
+  MASE_MINIMAL_AGENT_ALLOWLIST,
   PROFILES,
   isMinimalMode,
   shouldInstallSkill,
@@ -64,13 +65,36 @@ const {
   collectSkillBasenamesOnDisk,
 } = require('./helpers/install-shared.cjs');
 
+const REAL_COMMANDS_DIR = path.join(__dirname, '..', 'commands', 'gsd');
+const REAL_AGENTS_DIR = path.join(__dirname, '..', 'agents');
+
+function resolvedMaseMinimal() {
+  return resolveProfile({
+    modes: ['mase-minimal'],
+    manifest: loadSkillsManifest(REAL_COMMANDS_DIR),
+  });
+}
+
+function expectedMaseMinimalSkillSet() {
+  return resolvedMaseMinimal().skills;
+}
+
+function expectedMaseMinimalAgentsOnDisk() {
+  const existing = new Set(
+    fs.existsSync(REAL_AGENTS_DIR)
+      ? fs.readdirSync(REAL_AGENTS_DIR).filter(f => f.endsWith('.md')).map(f => f.slice(0, -3))
+      : [],
+  );
+  return new Set([...resolvedMaseMinimal().agents].filter(agent => existing.has(agent)));
+}
+
 // ─── Section 9: install-profiles — MINIMAL_SKILL_ALLOWLIST ───────────────────
 
 describe('install-profiles: MINIMAL_SKILL_ALLOWLIST', () => {
-  test('contains exactly the main-loop core (frozen)', () => {
+  test('contains exactly Mase small-install direct skills (frozen)', () => {
     assert.deepStrictEqual(
       [...MINIMAL_SKILL_ALLOWLIST].sort(),
-      ['discuss-phase', 'execute-phase', 'help', 'new-project', 'phase', 'plan-phase', 'surface', 'update'],
+      ['code-review', 'discuss-phase', 'execute-phase', 'fast', 'help', 'new-project', 'plan-phase', 'quick', 'update'],
     );
     assert.ok(Object.isFrozen(MINIMAL_SKILL_ALLOWLIST));
   });
@@ -108,7 +132,7 @@ describe('install-profiles: shouldInstallSkill', () => {
     for (const name of MINIMAL_SKILL_ALLOWLIST) {
       assert.strictEqual(shouldInstallSkill(name, 'minimal'), true, name);
     }
-    for (const denied of ['autonomous', 'do', 'progress', 'next', 'fast', 'quick']) {
+    for (const denied of ['autonomous', 'do', 'progress', 'next', 'phase', 'surface']) {
       assert.strictEqual(shouldInstallSkill(denied, 'minimal'), false, denied);
     }
   });
@@ -129,7 +153,8 @@ describe('install-profiles: stageSkillsForMode', () => {
   function createFixtureSkillsDir() {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-stage-fixture-'));
     for (const name of ['plan-phase', 'execute-phase', 'autonomous', 'do', 'help',
-      'new-project', 'phase', 'discuss-phase', 'update', 'progress', 'surface']) {
+      'new-project', 'phase', 'discuss-phase', 'update', 'progress', 'surface',
+      'code-review', 'fast', 'quick']) {
       fs.writeFileSync(path.join(tmp, `${name}.md`), `# ${name}\n`);
     }
     return tmp;
@@ -152,8 +177,8 @@ describe('install-profiles: stageSkillsForMode', () => {
       assert.notStrictEqual(staged, src);
       assert.deepStrictEqual(
         fs.readdirSync(staged).sort(),
-        ['discuss-phase.md', 'execute-phase.md', 'help.md', 'new-project.md',
-          'phase.md', 'plan-phase.md', 'surface.md', 'update.md'],
+        ['code-review.md', 'discuss-phase.md', 'execute-phase.md', 'fast.md',
+          'help.md', 'new-project.md', 'plan-phase.md', 'quick.md', 'update.md'],
       );
     } finally {
       fs.rmSync(src, { recursive: true, force: true });
@@ -269,13 +294,13 @@ describe('install-profiles: cleanupStagedSkills', () => {
 
 describe('install-profiles: allowlist scope guards', () => {
   test('every main-loop command is in the allowlist', () => {
-    for (const required of ['new-project', 'discuss-phase', 'plan-phase', 'execute-phase']) {
+    for (const required of ['new-project', 'discuss-phase', 'plan-phase', 'execute-phase', 'fast', 'quick', 'code-review']) {
       assert.ok(shouldInstallSkill(required, 'minimal'), `"${required}" must be in allowlist`);
     }
   });
 
-  test('off-loop commands are NOT in the allowlist', () => {
-    for (const offLoop of ['autonomous', 'ship', 'do', 'progress', 'next', 'fast', 'quick', 'debug', 'code-review', 'verify-work']) {
+  test('non-Mase-small commands are NOT in the direct allowlist', () => {
+    for (const offLoop of ['autonomous', 'ship', 'do', 'progress', 'next', 'debug', 'verify-work', 'phase', 'surface']) {
       assert.ok(!shouldInstallSkill(offLoop, 'minimal'), `"${offLoop}" must NOT be in allowlist`);
     }
   });
@@ -285,16 +310,16 @@ describe('install-profiles: allowlist scope guards', () => {
 
 describe('install: --minimal honoured for every runtime in --global mode', () => {
   for (const runtime of SKILL_RUNTIMES) {
-    test(`${runtime} --global --minimal: mode=minimal, correct skills, zero agents`, () => {
+    test(`${runtime} --global --minimal: mode=minimal, Mase small skills and agents`, () => {
       const { manifest, root } = runMinimalInstall({ runtime, scope: 'global', extraArgs: ['--minimal'] });
       try {
         assert.ok(manifest, `${runtime} global must produce manifest`);
         assert.strictEqual(manifest.mode, 'minimal');
         assert.deepStrictEqual(
           [...manifestSkillSet(manifest)].sort(),
-          [...MINIMAL_SKILL_ALLOWLIST].sort(),
+          [...expectedMaseMinimalSkillSet()].sort(),
         );
-        assert.strictEqual(manifestAgentCount(manifest), 0);
+        assert.strictEqual(manifestAgentCount(manifest), expectedMaseMinimalAgentsOnDisk().size);
       } finally {
         fs.rmSync(root, { recursive: true, force: true });
       }
@@ -304,16 +329,16 @@ describe('install: --minimal honoured for every runtime in --global mode', () =>
 
 describe('install: --minimal honoured for every runtime in --local mode', () => {
   for (const runtime of SKILL_RUNTIMES) {
-    test(`${runtime} --local --minimal: mode=minimal, correct skills, zero agents`, () => {
+    test(`${runtime} --local --minimal: mode=minimal, Mase small skills and agents`, () => {
       const { manifest, root } = runMinimalInstall({ runtime, scope: 'local', extraArgs: ['--minimal'] });
       try {
         assert.ok(manifest, `${runtime} local must produce manifest`);
         assert.strictEqual(manifest.mode, 'minimal');
         assert.deepStrictEqual(
           [...manifestSkillSet(manifest)].sort(),
-          [...MINIMAL_SKILL_ALLOWLIST].sort(),
+          [...expectedMaseMinimalSkillSet()].sort(),
         );
-        assert.strictEqual(manifestAgentCount(manifest), 0);
+        assert.strictEqual(manifestAgentCount(manifest), expectedMaseMinimalAgentsOnDisk().size);
       } finally {
         fs.rmSync(root, { recursive: true, force: true });
       }
@@ -323,14 +348,14 @@ describe('install: --minimal honoured for every runtime in --local mode', () => 
 
 describe('install: Cline --minimal (rules-based, no skills/ dir)', () => {
   for (const scope of ['global', 'local']) {
-    test(`cline --${scope} --minimal: mode=minimal, zero agents, .clinerules present`, () => {
+    test(`cline --${scope} --minimal: mode=minimal, Mase small manifest and .clinerules present`, () => {
       const { manifest, configDir, root } = runMinimalInstall({
         runtime: 'cline', scope, extraArgs: ['--minimal'],
       });
       try {
         assert.ok(manifest, 'cline must produce manifest');
         assert.strictEqual(manifest.mode, 'minimal');
-        assert.strictEqual(manifestAgentCount(manifest), 0);
+        assert.strictEqual(manifestAgentCount(manifest), expectedMaseMinimalAgentsOnDisk().size);
         assert.ok(fs.existsSync(path.join(configDir, '.clinerules')));
       } finally {
         fs.rmSync(root, { recursive: true, force: true });
@@ -354,8 +379,11 @@ describe('install: on-disk skill files match manifest for --minimal', () => {
           const agentsDir = path.join(configDir, 'agents');
           if (fs.existsSync(agentsDir)) {
             const gsdAgents = fs.readdirSync(agentsDir)
-              .filter(f => f.startsWith('gsd-') && f.endsWith('.md'));
-            assert.deepStrictEqual(gsdAgents, []);
+              .filter(f => f.startsWith('gsd-') && /\.(md|agent)$/.test(f));
+            assert.deepStrictEqual(
+              gsdAgents.map(f => f.replace(/\.(agent\.md|md|agent)$/, '')).sort(),
+              [...expectedMaseMinimalAgentsOnDisk()].sort(),
+            );
           }
         } finally {
           fs.rmSync(root, { recursive: true, force: true });
@@ -396,31 +424,37 @@ describe('install: manifest records mode for both profiles', () => {
     assert.ok(r.agentCount > 0);
   });
 
-  test('--minimal records mode: "minimal" with exactly 8 skills and 0 agents', () => {
+  test('--minimal records mode: "minimal" with Mase small skills and agents', () => {
     const r = manifestModeAfterInstall(['--minimal']);
     assert.strictEqual(r.mode, 'minimal');
-    assert.strictEqual(r.skillCount, 8);
-    assert.strictEqual(r.agentCount, 0);
+    assert.strictEqual(r.skillCount, expectedMaseMinimalSkillSet().size);
+    assert.strictEqual(r.agentCount, expectedMaseMinimalAgentsOnDisk().size);
   });
 
   test('--core-only is an alias for --minimal', () => {
     const r = manifestModeAfterInstall(['--core-only']);
     assert.strictEqual(r.mode, 'minimal');
-    assert.strictEqual(r.skillCount, 8);
-    assert.strictEqual(r.agentCount, 0);
+    assert.strictEqual(r.skillCount, expectedMaseMinimalSkillSet().size);
+    assert.strictEqual(r.agentCount, expectedMaseMinimalAgentsOnDisk().size);
   });
 });
 
-describe('install-minimal-backcompat: PROFILES.core matches MINIMAL_SKILL_ALLOWLIST', () => {
-  test('PROFILES.core contains the same 8 skills as MINIMAL_SKILL_ALLOWLIST', () => {
+describe('install-minimal-backcompat: PROFILES.mase-minimal matches MINIMAL_SKILL_ALLOWLIST', () => {
+  test('PROFILES.mase-minimal contains the same direct skills as MINIMAL_SKILL_ALLOWLIST', () => {
     assert.deepStrictEqual(
-      [...PROFILES.core].sort(),
+      [...PROFILES['mase-minimal']].sort(),
       [...MINIMAL_SKILL_ALLOWLIST].sort(),
     );
   });
+
+  test('Mase minimal carries the curated agent allowlist', () => {
+    for (const agent of MASE_MINIMAL_AGENT_ALLOWLIST) {
+      assert.ok(resolvedMaseMinimal().agents.has(agent), `${agent} should be included`);
+    }
+  });
 });
 
-describe('install-minimal-backcompat: --minimal and --profile=core produce same manifest', () => {
+describe('install-minimal-backcompat: --minimal and --profile=core remain distinct', () => {
   function installAndGetManifest(extraArgs) {
     const targetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-backcompat-'));
     try {
@@ -443,15 +477,15 @@ describe('install-minimal-backcompat: --minimal and --profile=core produce same 
     }
   }
 
-  test('--minimal produces mode "minimal" with exactly 8 skills', () => {
+  test('--minimal produces mode "minimal" with Mase small skill surface', () => {
     const r = installAndGetManifest(['--minimal']);
     assert.strictEqual(r.mode, 'minimal');
-    assert.strictEqual(r.skillCount, 8);
+    assert.strictEqual(r.skillCount, expectedMaseMinimalSkillSet().size);
   });
 
-  test('--minimal writes .gsd-profile marker "core"', () => {
+  test('--minimal writes .gsd-profile marker "mase-minimal"', () => {
     const r = installAndGetManifest(['--minimal']);
-    assert.strictEqual(r.profileMarker, 'core');
+    assert.strictEqual(r.profileMarker, 'mase-minimal');
   });
 
   test('default install writes .gsd-profile marker "full"', () => {
@@ -471,7 +505,7 @@ describe('install-minimal-backcompat: --minimal and --profile=core produce same 
 });
 
 describe('install: Codex full → minimal downgrade cleans stale agent state', () => {
-  test('--minimal removes stale .toml agents and strips [agents.gsd-*] from config.toml', () => {
+  test('--minimal replaces stale GSD agents and preserves managed [agents.gsd-*] config', () => {
     const targetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-codex-downgrade-'));
     try {
       const agentsDir = path.join(targetDir, 'agents');
@@ -503,17 +537,17 @@ describe('install: Codex full → minimal downgrade cleans stale agent state', (
       assert.ok(result.stdout || result.stderr);
 
       const remaining = fs.existsSync(agentsDir) ? fs.readdirSync(agentsDir) : [];
-      assert.ok(!remaining.includes('gsd-executor.md'));
-      assert.ok(!remaining.includes('gsd-planner.md'));
-      assert.ok(!remaining.includes('gsd-executor.toml'));
-      assert.ok(!remaining.includes('gsd-planner.toml'));
       assert.ok(remaining.includes('my-custom-agent.md'));
+      for (const agent of expectedMaseMinimalAgentsOnDisk()) {
+        assert.ok(remaining.includes(`${agent}.md`), `${agent}.md should remain installed`);
+        assert.ok(remaining.includes(`${agent}.toml`), `${agent}.toml should be generated for Codex`);
+      }
 
       const configPath = path.join(targetDir, 'config.toml');
       if (fs.existsSync(configPath)) {
         const config = fs.readFileSync(configPath, 'utf8');
-        assert.ok(!config.includes('[agents.gsd-executor]'));
-        assert.ok(!config.includes('[agents.gsd-planner]'));
+        assert.ok(config.includes('[agents.gsd-executor]'));
+        assert.ok(config.includes('[agents.gsd-planner]'));
         assert.ok(config.includes('model = "gpt-5"'));
       }
       assert.ok(fs.existsSync(configPath));
@@ -524,7 +558,7 @@ describe('install: Codex full → minimal downgrade cleans stale agent state', (
 });
 
 describe('install: Claude full → minimal downgrade removes stale agents', () => {
-  test('--minimal removes stale gsd-*.md agents but preserves user-owned agents', () => {
+  test('--minimal replaces stale gsd-*.md agents with curated Mase agents and preserves user-owned agents', () => {
     const targetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-claude-downgrade-'));
     try {
       const agentsDir = path.join(targetDir, 'agents');
@@ -540,10 +574,11 @@ describe('install: Claude full → minimal downgrade removes stale agents', () =
       );
 
       const remaining = fs.existsSync(agentsDir) ? fs.readdirSync(agentsDir) : [];
-      assert.ok(!remaining.includes('gsd-executor.md'));
-      assert.ok(!remaining.includes('gsd-planner.md'));
       assert.ok(remaining.includes('my-custom-agent.md'));
-      assert.deepStrictEqual(remaining.filter(f => f.startsWith('gsd-')), []);
+      assert.deepStrictEqual(
+        remaining.filter(f => f.startsWith('gsd-')).map(f => f.slice(0, -3)).sort(),
+        [...expectedMaseMinimalAgentsOnDisk()].sort(),
+      );
     } finally {
       fs.rmSync(targetDir, { recursive: true, force: true });
     }

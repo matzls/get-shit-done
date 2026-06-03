@@ -1,0 +1,210 @@
+{
+  "schema_version": "peer-review-v1",
+  "review_id": "peer-review-8ed7aa45efab",
+  "plan_path": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/open-gsd-reconciliation-plan-2026-06-03.md",
+  "plan_sha256": "39a51b289e2fd10c1348f77a08cc13e1eb3737bcd7fd49dbd2bd80ad548a14fb",
+  "mode": "workflow-plan-gate",
+  "sidecar_dir": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_peer-reviews",
+  "engine": "Claude",
+  "requested_engine": "auto",
+  "origin_runtime": "codex",
+  "engine_policy": "opposite_preferred",
+  "resolved_primary_engine": "claude",
+  "preferred_engine": "claude",
+  "fallback_engine": null,
+  "final_engine": "claude",
+  "reviewer_match": "opposite",
+  "gate_quality": "preferred",
+  "artifact_role": "canonical",
+  "canonical_sidecar_path": "/Users/mase/Codebase/Personal-Projects/get-shit-done/docs/plans/_peer-reviews/open-gsd-reconciliation-plan-2026-06-03-peer-review.json",
+  "fallback_used": false,
+  "fallback_reason": null,
+  "attempt_chain": [
+    {
+      "engine": "claude",
+      "phase": "primary",
+      "attempt": 1,
+      "timeout_seconds": 300,
+      "result": "completed",
+      "elapsed_seconds": 231.587,
+      "returncode": 0
+    }
+  ],
+  "attempt_failures": [],
+  "primary_failure": null,
+  "fallback_failure": null,
+  "review_round": 1,
+  "max_rounds": 3,
+  "prior_review_id": "None",
+  "caller_disposition_summary": "",
+  "addressed_issues": [],
+  "deferred_issues": [],
+  "recheck_requests": [],
+  "model": "claude-opus-4-6",
+  "verdict": "Sound-with-issues",
+  "stance": null,
+  "issues_count": 2,
+  "ran_at": "2026-06-03T09:30:39.478674+00:00",
+  "raw_review_excerpt": "Phase 1 is narrow (doc + guardrail + fork-marker only), safely scoped, and has concrete validation steps and an explicit approval gate before any installer or propagation work. The plan is well-grounded in peer-reviewed research with specific SHAs, branches, and rollback anchors. No freeze blockers found. Two WARNs for later-phase verification readiness and one NOTE on missing mid-plan approval gates. Verdict: Sound-with-issues.\n\nIssues:\n- 1. [WARN] Later-phase verify commands reference test files that may not exist\n- 2. [NOTE] Phases 3-6 lack explicit approval gates",
+  "error": null,
+  "closure_verification": "No prior round to verify. This is round 1/3.",
+  "prior_round_closure": [],
+  "rerun_recommendation": "stop",
+  "review": {
+    "mode": "workflow-plan-gate",
+    "summary": "Phase 1 is narrow (doc + guardrail + fork-marker only), safely scoped, and has concrete validation steps and an explicit approval gate before any installer or propagation work. The plan is well-grounded in peer-reviewed research with specific SHAs, branches, and rollback anchors. No freeze blockers found. Two WARNs for later-phase verification readiness and one NOTE on missing mid-plan approval gates. Verdict: Sound-with-issues.",
+    "rubric_cards": [
+      {
+        "title": "Claim Anchoring",
+        "anchor": "Plan claims vs inspected evidence",
+        "claim": "Plan references specific files, branches, SHAs, test files, and upstream behavior as the basis for phased implementation.",
+        "evidence": "Verified: oss-fork-manager.json exists with schema_version 1 (line 28). mase-install-fork.sh, mase-gsd-install-inventory.sh, mase-minimal-profile.cjs all exist with matching behavior descriptions. install-profiles.cjs confirms mase-minimal profile and composition model. AGENTS.md and mase-fork-operating-model.md exist and match plan description. Research doc has peer-review sidecar and follow-up verification table. Test files: mase-gsd-fork-scripts.test.cjs, codex-config.test.cjs, agent-install-validation.test.cjs, bug-3357 test exist. install.test.cjs, install-minimal-hooks.test.cjs, graphify-auto-update.test.cjs do NOT exist on current branch. Rollback tag and named ref SHAs claimed in research as verified but not re-verified here (no git tool access).",
+        "disposition": "Partial \u2014 Phase 1 claims are well-anchored; some later-phase test file references are unverified on the target branch."
+      },
+      {
+        "title": "Disposition Matrix",
+        "anchor": "Artifact/conversation/campaign coverage",
+        "claim": "Plan artifact is self-contained with research backing; no conversation context needed for this review; campaign scope is Phase 1 freeze gate only.",
+        "evidence": "Plan artifact read in full (428 lines). Research doc read through line 345. Key source files inspected: package.json, AGENTS.md, oss-fork-manager.json, install-profiles.cjs, mase-minimal-profile.cjs, mase-install-fork.sh, mase-gsd-install-inventory.sh, 5 test files checked for existence. No prior round context to verify.",
+        "disposition": "Artifact evidence is strong; no conversation evidence needed; campaign is single-plan Phase 1 gate."
+      },
+      {
+        "title": "Coverage Scope",
+        "anchor": "What was and was not reviewed",
+        "claim": "Review covered the full plan artifact, the research document through peer-review section, and directly implicated source files on the current branch.",
+        "evidence": "Read: plan (full), research (lines 1-345), package.json, AGENTS.md, oss-fork-manager.json, install-profiles.cjs, mase-minimal-profile.cjs, mase-install-fork.sh, mase-gsd-install-inventory.sh, mase-fork-operating-model.md, 7 test file existence checks. Not checked: upstream-main branch file contents (no git checkout access), rollback tag SHA verification, origin/mase/local-fixes current SHA.",
+        "disposition": "Good coverage for Phase 1 gate; upstream-main branch state and git ref verification are explicit gaps."
+      }
+    ],
+    "disposition_matrix": {
+      "rows": [
+        "artifact",
+        "conversation",
+        "campaign"
+      ],
+      "columns": [
+        "present",
+        "partial",
+        "missing"
+      ],
+      "cells": [
+        [
+          "Plan phases 1-8 with validation, gates, and anchors",
+          "Test file existence on upstream-main branch",
+          "N/A"
+        ],
+        [
+          "N/A",
+          "N/A",
+          "No conversation context needed"
+        ],
+        [
+          "Phase 1 freeze gate assessed",
+          "Later-phase validation paths noted",
+          "Full campaign execution readiness not in scope"
+        ]
+      ]
+    },
+    "conversation_evidence": {
+      "used": false,
+      "sources": [],
+      "summary": "No conversation evidence was used. The review is based entirely on the plan artifact, research document, and direct inspection of referenced source files.",
+      "gaps": []
+    },
+    "campaign_coverage": {
+      "scope": "slice-only",
+      "covered": [
+        "Phase 1 freeze readiness: scope, validation commands, approval gate, branch strategy, rollback safety",
+        "Plan-wide structural integrity: phasing, non-goals, fixed decisions, execution rules",
+        "Source file existence verification for plan-referenced artifacts on current branch"
+      ],
+      "missing": [
+        "upstream-main branch file inventory (Phase 1 implementation target)",
+        "Git ref and SHA verification (rollback tag, branch HEADs)",
+        "Phases 2-8 detailed implementation readiness (out of scope for Phase 1 gate)"
+      ],
+      "gaps": [
+        "Cannot verify what files exist on upstream-main without git checkout",
+        "Cannot verify rollback tag SHA or branch HEAD SHAs without git access"
+      ]
+    },
+    "issues": [
+      {
+        "title": "Later-phase verify commands reference test files that may not exist",
+        "details": "Phase 2 references tests/install.test.cjs, Phase 3 references tests/install-minimal-hooks.test.cjs, and Phase 4 references tests/graphify-auto-update.test.cjs. None of these exist on the current branch (mase/local-fixes). They may exist on upstream-main or may need creation. Phase scope sections say 'Add or adapt' tests but validation sections present node --test commands as if files will exist.",
+        "suggested_fix": "When each later phase reaches its own gate, verify test file existence on the implementation branch before running validation. If absent, the phase scope should explicitly list them under 'create' rather than only 'adapt'.",
+        "severity": "WARN"
+      },
+      {
+        "title": "Phases 3-6 lack explicit approval gates",
+        "details": "Only Phases 1, 2, 7, and 8 define explicit approval gates. Phases 3-6 have validation sections but no stop-and-review step. The execution rules say 'Stop at each approval gate and report evidence' but Phases 3-6 don't define one. The Ready To Start section says 'Everything after Phase 1 requires separate approval' but this only gates Phase 2.",
+        "suggested_fix": "Add a brief note that Phases 3-6 require operator review of validation results before proceeding, or explicitly state they can execute sequentially once Phase 2 is approved.",
+        "severity": "NOTE"
+      }
+    ],
+    "verification_gaps": [
+      "Cannot verify upstream-main branch file contents (implementation target) without git checkout \u2014 affects whether Phase 1 starts from the expected upstream state",
+      "Cannot re-verify rollback tag SHA (ba25aa10) or named branch HEADs \u2014 research claims them as verified but this review could not independently confirm",
+      "Cannot verify whether test files referenced in Phases 2-4 exist on upstream-main"
+    ],
+    "recommended_fixes": [
+      "When beginning Phase 1 implementation, verify upstream-main HEAD matches the documented SHA (63a8625) before branching",
+      "Before each later phase's validation step, confirm referenced test files exist on the implementation branch or explicitly create them as part of that phase's scope"
+    ],
+    "evidence_sources": [
+      "docs/plans/open-gsd-reconciliation-plan-2026-06-03.md (full, 428 lines)",
+      "docs/plans/open-gsd-reconciliation-research-2026-06-03.md (lines 1-345)",
+      "package.json (lines 1-50)",
+      "AGENTS.md (lines 1-80)",
+      ".codex/oss-fork-manager.json (full, 28 lines)",
+      "get-shit-done/bin/lib/install-profiles.cjs (lines 1-60)",
+      "get-shit-done/bin/lib/mase-minimal-profile.cjs (full, 49 lines)",
+      "scripts/mase-install-fork.sh (lines 1-30)",
+      "scripts/mase-gsd-install-inventory.sh (lines 1-30)",
+      "docs/mase-fork-operating-model.md (lines 1-30)",
+      "tests/mase-gsd-fork-scripts.test.cjs (lines 1-30)",
+      "tests/codex-config.test.cjs (lines 1-20)",
+      "tests/agent-install-validation.test.cjs (lines 1-10)",
+      "tests/bug-3357-codex-legacy-hooks-json-migration.test.cjs (lines 1-10)",
+      "File existence checks: install.test.cjs (absent), install-minimal-hooks.test.cjs (absent), graphify-auto-update.test.cjs (absent)"
+    ],
+    "error": null,
+    "verdict": "Sound-with-issues",
+    "workflow_compliance": [
+      "Plan uses explicit phases with objective, scope, validation, and approval gates \u2014 compliant with GSD planning discipline",
+      "Phase 1 is correctly scoped as doc/guardrail only with no installer, propagation, or package identity changes",
+      "Approval gates exist at high-risk transitions: Phase 1\u21922, before propagation apply, before branch rewrite",
+      "Execution rules prohibit push/force-push/propagation without explicit approval",
+      "Non-goals and fixed decisions are concrete and traceable to research findings",
+      "Ready To Start criteria require explicit Mase approval before Phase 1 begins"
+    ],
+    "technical_reality": [
+      "Current package.json still has old identity get-shit-done-cc \u2014 consistent with plan's intent to adopt @opengsd/gsd-core in Phase 2",
+      "oss-fork-manager.json exists as schema_version 1 \u2014 matches plan's Phase 1 scope of adding/adapting this file",
+      "install-profiles.cjs confirms mase-minimal profile with composition support \u2014 matches research findings on upstream profile model",
+      "mase-minimal-profile.cjs skill and agent allowlists match the plan's Phase 3 desired surface exactly",
+      "Fork scripts (install, inventory, propagation) exist and match plan descriptions",
+      "Current AGENTS.md describes fork operating model \u2014 Phase 1 compose step has a real basis"
+    ],
+    "assumptions_to_verify": [
+      "upstream-main branch HEAD matches documented SHA 63a8625 at implementation time",
+      "rollback tag rollback/mase-local-fixes-pre-upstream-2026-06-02 still exists and points to ba25aa10",
+      "upstream AGENTS.md content is composable with Mase fork override (flagged as open validation item in research)",
+      "upstream install-profiles.cjs supports the profile composition model described in research (claimed verified but not re-checked on upstream-main)"
+    ],
+    "verification_sufficiency": [
+      "Phase 1 validation (git diff --check, git remote -v, git tag -l, manual doc review) is sufficient for a doc-only phase",
+      "Phase 1 manual checks correctly scope to 'no installer, workflow, SDK, hook, propagation, or package identity code was changed'",
+      "Later phases have appropriate test-based validation \u2014 contingent on test files existing on the implementation branch"
+    ],
+    "downstream_risks": [
+      "If upstream-main has drifted since the research was written, Phase 1 branch point may not match expectations",
+      "If upstream AGENTS.md has changed significantly, the compose step in Phase 1 may need more adaptation than planned",
+      "Later phases depend on upstream profile APIs remaining stable \u2014 any upstream refactor between now and Phase 3 could require plan updates"
+    ],
+    "freeze_recommendation": "Safe to freeze. Carry the remaining WARN/NOTE items as explicit follow-ups or implementation-time checks.",
+    "prior_round_closure": [],
+    "closure_verification": "No prior round to verify. This is round 1/3.",
+    "rerun_recommendation": "stop"
+  }
+}

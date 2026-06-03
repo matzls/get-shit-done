@@ -1458,6 +1458,31 @@ describe('Codex install hook configuration (e2e)', () => {
     );
   });
 
+  test('Codex install honors GSD_SKIP_UPDATE_CHECK_HOOK=1', () => {
+    const previous = process.env.GSD_SKIP_UPDATE_CHECK_HOOK;
+    process.env.GSD_SKIP_UPDATE_CHECK_HOOK = '1';
+    try {
+      runCodexInstall(codexHome);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.GSD_SKIP_UPDATE_CHECK_HOOK;
+      } else {
+        process.env.GSD_SKIP_UPDATE_CHECK_HOOK = previous;
+      }
+    }
+
+    const configContent = readCodexConfig(codexHome);
+    assert.strictEqual(countMatches(configContent, /^hooks = true$/gm), 0, 'does not enable Codex hooks for the update check');
+    assert.ok(!fs.existsSync(path.join(codexHome, 'hooks', 'gsd-check-update.js')), 'does not copy gsd-check-update.js');
+    assert.ok(!fs.existsSync(path.join(codexHome, 'hooks', 'gsd-check-update.cmd')), 'does not copy Windows hook shim');
+    const hooksJsonCommands = readHooksSessionStartCommands(codexHome);
+    assert.strictEqual(
+      hooksJsonCommands.filter((cmd) => cmd.includes('gsd-check-update')).length,
+      0,
+      'does not register the update-check hook in hooks.json',
+    );
+  });
+
   test('fresh CODEX_HOME enables codex_hooks without draft root defaults', () => {
     runCodexInstall(codexHome);
 

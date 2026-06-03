@@ -1,3 +1,48 @@
+# Mase GSD Fork Operating Notes
+
+This repository is Mase's personal fork of Open GSD / GSD Core.
+
+## Start Here
+
+For the one-way upstream update procedure, read
+`docs/mase-fork-operating-model.md#upstream-intake` before fetching, merging,
+rebasing, or pushing. The short rule is: pull improvements from `upstream`, push
+only to `origin`.
+
+## Remotes
+
+- `origin`: `https://github.com/matzls/get-shit-done.git`
+- `upstream`: `https://github.com/open-gsd/gsd-core.git`
+
+`upstream` is read-only for this fork. Do not push branches, tags, or fixes to
+`upstream`. Push only to `origin`.
+
+The previous `gsd-build/get-shit-done` upstream is retired and must not be used
+as an intake source. If old merge commits or remote-tracking refs mention it,
+treat them as historical rollback evidence only, not as trusted source code.
+
+## Branch Model
+
+- Keep `upstream-main` as the clean upstream mirror.
+- Keep durable Mase-specific customizations on `mase/local-fixes`.
+- Use focused task branches for individual reconciliation phases.
+
+## Fork Install Policy
+
+For fork-based installs, do not use `/gsd-update`, public npm update flows, or
+`npx @opengsd/gsd-core@latest`. Those follow upstream package behavior.
+
+The fork-managed wrapper is restored in the installer/provenance phase of the
+Mase overlay. Once that phase is complete, use the wrapper from the validated
+fork branch instead:
+
+```bash
+scripts/mase-install-fork.sh
+```
+
+Fork installs should remain identifiable by `mase-fork-install.json` markers and
+should be propagated only after explicit approval.
+
 # Repository Guidelines
 
 ## Active Discussions
